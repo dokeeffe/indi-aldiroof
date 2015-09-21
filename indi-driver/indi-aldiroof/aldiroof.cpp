@@ -156,6 +156,7 @@ bool RollOff::Connect()
 {
 //    SetTimer(1000);     //  start the timer
 //    return true;
+    //iterate over all /dev/ttyACMx where x=0 to 3 and connect to the first arduino found TODO: add better detection for the correct arduino. 
     ITextVectorProperty *tProp = getText("DEVICE_PORT");
     sf = new Firmata(tProp->tp[0].text);
     if (sf->portOpen) {
