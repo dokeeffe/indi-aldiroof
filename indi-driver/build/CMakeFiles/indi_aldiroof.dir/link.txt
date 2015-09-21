@@ -1,1 +1,0 @@
-/usr/bin/c++   -std=c++0x     CMakeFiles/indi_aldiroof.dir/aldiroof.o  -o indi_aldiroof -rdynamic -lindidriver libfirmata.a 

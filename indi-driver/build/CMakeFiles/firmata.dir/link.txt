@@ -1,2 +1,0 @@
-/usr/bin/ar cr libfirmata.a  CMakeFiles/firmata.dir/libfirmata/src/firmata.o CMakeFiles/firmata.dir/libfirmata/src/arduino.o
-/usr/bin/ranlib libfirmata.a

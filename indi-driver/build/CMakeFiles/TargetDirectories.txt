@@ -1,2 +1,0 @@
-/home/dokeeffe/Code/aldi-roll-off-roof/indi-driver/build/CMakeFiles/firmata.dir
-/home/dokeeffe/Code/aldi-roll-off-roof/indi-driver/build/CMakeFiles/indi_aldiroof.dir
