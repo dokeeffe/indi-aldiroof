@@ -1,0 +1,5 @@
+Create a dir called build at the same level as indi-aldiroof
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=/usr ../lulu_indi_driver/
+sudo make install
+
