@@ -158,7 +158,8 @@ bool RollOff::Connect()
 //    return true;
     //iterate over all /dev/ttyACMx where x=0 to 3 and connect to the first arduino found TODO: add better detection for the correct arduino. 
     ITextVectorProperty *tProp = getText("DEVICE_PORT");
-    sf = new Firmata(tProp->tp[0].text);
+    //sf = new Firmata(tProp->tp[0].text);
+    sf = new Firmata("/dev/ttyACM0");
     if (sf->portOpen) {
     	IDLog("ARDUINO BOARD CONNECTED.\n");
 	IDLog("FIRMATA VERSION:%s\n",sf->firmata_name);
@@ -166,7 +167,7 @@ bool RollOff::Connect()
         return true;
     } else {
 	IDLog("ARDUINO BOARD FAIL TO CONNECT. CHECK PORT NAME\n");
-	IDSetSwitch (getSwitch("CONNECTION"),"ARDUINO BOARD FAIL TO CONNECT. CHECK PORT NAME\n");
+	IDSetSwitch (getSwitch("CONNECTION"),"ARDUINO BOARD FAIL TO CONNECT. CHECK PORT NAME\n"); //TODO: is IDSetSwitch correct?
 	delete sf;
 	return false;
     }
@@ -264,6 +265,20 @@ bool RollOff::Move(DomeDirection dir, DomeMotionCommand operation)
             DEBUG(INDI::Logger::DBG_WARNING, "Roof is already fully closed.");
             return false;
         }
+        else if (dir == DOME_CW)
+        {
+            DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 2");
+            sf->writeDigitalPin(3,ARDUINO_LOW);
+            sf->writeDigitalPin(4,ARDUINO_LOW);
+            sf->writeDigitalPin(2,ARDUINO_HIGH);
+        }                    
+        else if (dir == DOME_CCW)
+        {
+            DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 3");
+            sf->writeDigitalPin(2,ARDUINO_LOW);
+            sf->writeDigitalPin(4,ARDUINO_LOW);
+            sf->writeDigitalPin(3,ARDUINO_HIGH);
+        }                    
 
         fullOpenLimitSwitch   = ISS_OFF;
         fullClosedLimitSwitch = ISS_OFF;
@@ -310,6 +325,11 @@ bool RollOff::Abort()
 {
     MotionRequest=-1;
 
+    DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 4");
+    sf->writeDigitalPin(2,ARDUINO_LOW);
+    sf->writeDigitalPin(3,ARDUINO_LOW);
+    sf->writeDigitalPin(4,ARDUINO_HIGH);
+    
     // If both limit switches are off, then we're neither parked nor unparked.
     if (fullOpenLimitSwitch == false && fullClosedLimitSwitch == false)
     {
