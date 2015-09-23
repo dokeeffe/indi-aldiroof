@@ -157,20 +157,28 @@ bool RollOff::Connect()
 //    SetTimer(1000);     //  start the timer
 //    return true;
     //iterate over all /dev/ttyACMx where x=0 to 3 and connect to the first arduino found TODO: add better detection for the correct arduino. 
-    ITextVectorProperty *tProp = getText("DEVICE_PORT");
+    //ITextVectorProperty *tProp = getText("DEVICE_PORT");
     //sf = new Firmata(tProp->tp[0].text);
-    sf = new Firmata("/dev/ttyACM0");
-    if (sf->portOpen) {
-    	IDLog("ARDUINO BOARD CONNECTED.\n");
-	IDLog("FIRMATA VERSION:%s\n",sf->firmata_name);
-	IDSetSwitch (getSwitch("CONNECTION"),"CONNECTED.FIRMATA VERSION:%s\n",sf->firmata_name);
-        return true;
-    } else {
-	IDLog("ARDUINO BOARD FAIL TO CONNECT. CHECK PORT NAME\n");
-	IDSetSwitch (getSwitch("CONNECTION"),"ARDUINO BOARD FAIL TO CONNECT. CHECK PORT NAME\n"); //TODO: is IDSetSwitch correct?
-	delete sf;
-	return false;
+    for( int a = 10; a < 20; a = a + 1 )
+    {
+    	string usbPort = "/dev/ttyACM" +  std::to_string(a)
+    	IDLog("Attempting connection to ", usbPort);
+        sf = new Firmata(usbPort);
+	if (sf->portOpen) {
+    	    IDLog("ARDUINO BOARD CONNECTED.\n");
+	    IDLog("FIRMATA VERSION:%s\n",sf->firmata_name);
+	    IDSetSwitch (getSwitch("CONNECTION"),"CONNECTED.FIRMATA VERSION:%s\n",sf->firmata_name);
+            return true;
+        } else {
+	IDLog("Failed, trying next port.\n");
+	//delete sf;
+	//return false;
+        }
     }
+    IDLog("ARDUINO BOARD FAIL TO CONNECT.\n");
+    IDSetSwitch (getSwitch("CONNECTION"),"ARDUINO BOARD FAIL TO CONNECT. CHECK PORT NAME\n"); //TODO: is IDSetSwitch correct?
+    delete sf;
+    return false;
 }
 
 RollOff::~RollOff()
