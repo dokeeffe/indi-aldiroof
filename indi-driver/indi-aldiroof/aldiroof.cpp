@@ -1,20 +1,9 @@
 /*******************************************************************************
- Dome Simulator
- Copyright(c) 2014 Jasem Mutlaq. All rights reserved.
+Aldi hoist powered observatory roof driver.
 
- This library is free software; you can redistribute it and/or
- modify it under the terms of the GNU Library General Public
- License version 2 as published by the Free Software Foundation.
- .
- This library is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- Library General Public License for more details.
- .
- You should have received a copy of the GNU Library General Public License
- along with this library; see the file COPYING.LIB.  If not, write to
- the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- Boston, MA 02110-1301, USA.
+Controls an arduino using firmata to switch on/off relays connected to a 550w 220v electric hoist.
+
+Sept 2015 Derek OKeeffe
 *******************************************************************************/
 #include "aldiroof.h"
 
@@ -31,7 +20,7 @@
 // We declare an auto pointer to RollOff.
 std::auto_ptr<RollOff> rollOff(0);
 
-#define ROLLOFF_DURATION    10      // 10 seconds until roof is fully opened or closed
+#define ROLLOFF_DURATION    10      // TODO: remove this timer stuff which came from the simulator
 
 void ISPoll(void *p);
 
@@ -152,25 +141,21 @@ bool RollOff::SetupParms()
     return true;
 }
 
+
 bool RollOff::Connect()
 {
-//    SetTimer(1000);     //  start the timer
-//    return true;
-    //iterate over all /dev/ttyACMx where x=0 to 3 and connect to the first arduino found TODO: add better detection for the correct arduino. 
-    //ITextVectorProperty *tProp = getText("DEVICE_PORT");
-    //sf = new Firmata(tProp->tp[0].text);
-    for( int a = 10; a < 20; a = a + 1 )
+    for( int a = 0; a < 20; a = a + 1 )
     {
-    	string usbPort = "/dev/ttyACM" +  std::to_string(a)
-    	IDLog("Attempting connection to ", usbPort);
-        sf = new Firmata(usbPort);
-	if (sf->portOpen) {
+    	string usbPort = "/dev/ttyACM" +  std::to_string(a);
+    	DEBUG(INDI::Logger::DBG_SESSION, "Attempting connection .\n");
+        sf = new Firmata(usbPort.c_str());
+        if (sf->portOpen && strstr(sf->firmata_name, "SimpleDigitalFirmataRoofController")) {
     	    IDLog("ARDUINO BOARD CONNECTED.\n");
 	    IDLog("FIRMATA VERSION:%s\n",sf->firmata_name);
 	    IDSetSwitch (getSwitch("CONNECTION"),"CONNECTED.FIRMATA VERSION:%s\n",sf->firmata_name);
             return true;
         } else {
-	IDLog("Failed, trying next port.\n");
+	DEBUG(INDI::Logger::DBG_SESSION,"Failed, trying next port.\n");
 	//delete sf;
 	//return false;
         }
@@ -188,7 +173,7 @@ RollOff::~RollOff()
 
 const char * RollOff::getDefaultName()
 {
-        return (char *)"RollOff Simulator";
+        return (char *)"Aldi roof";
 }
 
 bool RollOff::updateProperties()
@@ -205,6 +190,10 @@ bool RollOff::updateProperties()
 
 bool RollOff::Disconnect()
 {
+    sf->closePort();
+    delete sf;	
+    IDLog("ARDUINO BOARD DISCONNECTED.\n");
+    IDSetSwitch (getSwitch("CONNECTION"),"DISCONNECTED\n");
     return true;
 }
 
@@ -331,13 +320,13 @@ IPState RollOff::UnPark()
 
 bool RollOff::Abort()
 {
-    MotionRequest=-1;
-
-    DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 4");
+    DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 4(abort)");
     sf->writeDigitalPin(2,ARDUINO_LOW);
     sf->writeDigitalPin(3,ARDUINO_LOW);
     sf->writeDigitalPin(4,ARDUINO_HIGH);
-    
+            
+    MotionRequest=-1;
+
     // If both limit switches are off, then we're neither parked nor unparked.
     if (fullOpenLimitSwitch == false && fullClosedLimitSwitch == false)
     {
@@ -349,44 +338,34 @@ bool RollOff::Abort()
     return true;
 }
 
-float RollOff::CalcTimeLeft(timeval start)
-{
-    double timesince;
-    double timeleft;
-    struct timeval now;
-    gettimeofday(&now,NULL);
-
-    timesince=(double)(now.tv_sec * 1000.0 + now.tv_usec/1000) - (double)(start.tv_sec * 1000.0 + start.tv_usec/1000);
-    timesince=timesince/1000;
-    timeleft=MotionRequest-timesince;
-    return timeleft;
-}
-
 bool RollOff::getFullOpenedLimitSwitch()
-{
-
-    double timeleft = CalcTimeLeft(MotionStart);
-
-    if (timeleft <= 0)
-    {
-        fullOpenLimitSwitch = ISS_ON;
+{    
+    sf->OnIdle();
+    if (sf->pin_info[8].value > 0) {
+        DEBUG(INDI::Logger::DBG_SESSION, "Fully open switch ON");
+        DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 4(stop)");
+        sf->writeDigitalPin(2,ARDUINO_LOW);
+        sf->writeDigitalPin(3,ARDUINO_LOW);
+        sf->writeDigitalPin(4,ARDUINO_HIGH);
         return true;
-    }
-    else
+    } else {
+//        DEBUG(INDI::Logger::DBG_SESSION, "Fully open switch OFF");
         return false;
+    }
 }
 
 bool RollOff::getFullClosedLimitSwitch()
-{
-
-    double timeleft = CalcTimeLeft(MotionStart);
-
-    if (timeleft <= 0)
-    {
-        fullClosedLimitSwitch = ISS_ON;
+{    
+    if (sf->pin_info[9].value > 0) {
+        DEBUG(INDI::Logger::DBG_SESSION, "Fully Closed switch ON");
+        DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 4(stop)");
+        sf->writeDigitalPin(2,ARDUINO_LOW);
+        sf->writeDigitalPin(3,ARDUINO_LOW);
+        sf->writeDigitalPin(4,ARDUINO_HIGH);
         return true;
-    }
-    else
+    } else {
+//        DEBUG(INDI::Logger::DBG_SESSION, "Fully Closed switch OFF");
         return false;
+    }
 }
 
