@@ -1,12 +1,17 @@
-# indi-aldiroof
+An INDI (http://indilib.org/) driver and arduino firmware to control a roll off roof of an astronomical observatory.
 
 ![observatory](https://pbs.twimg.com/media/CFelQpDW0AEEALn.jpg)
 
-INDI (http://indilib.org/) driver and arduino firmware to control a roll off roof of an astronomical observatory.
 The roof is powered by a 550W electric hoist purchased from Aldi.
 The arduino controls 4 relays connected to the hoist's hand controller which override the manual switch.
 The indi driver comminicates with the arduino using the frimata protocol.
 
+# Hardware Parts List
 
+1. Electric hoist reworked to open and close the roof.
+1. Arduino Micro (to install firmware on)
+2. 4 X 30A relays 
+3. Project box (to contain arduino and relays)
+4. Linux machine running indi server (install the driver on).
 
 ![hoist](https://customerservice.aldi.co.uk/warranties/images/products/ThuJan22161226UTC2009.jpg)
