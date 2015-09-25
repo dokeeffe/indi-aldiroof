@@ -14,4 +14,12 @@ The indi driver comminicates with the arduino using the frimata protocol.
 3. Project box (to contain arduino and relays)
 4. Linux machine running indi server (install the driver on).
 
+# Building / Installing Software
+
+1. Flash the firmware to your arduino using the arduino ide.
+2. Build and install the driver on the machine running indi server.
+
+# Building Hardware
+
+
 ![hoist](https://customerservice.aldi.co.uk/warranties/images/products/ThuJan22161226UTC2009.jpg)
