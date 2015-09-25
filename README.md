@@ -21,5 +21,8 @@ The indi driver comminicates with the arduino using the frimata protocol.
 
 # Building Hardware
 
+1. TODO: Wiring diagram and description
+2. TODO: Photos of hoist in roof
+
 
 ![hoist](https://customerservice.aldi.co.uk/warranties/images/products/ThuJan22161226UTC2009.jpg)
