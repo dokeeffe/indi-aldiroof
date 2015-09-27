@@ -134,21 +134,17 @@ bool RollOff::Connect()
     for( int a = 0; a < 20; a = a + 1 )
     {
     	string usbPort = "/dev/ttyACM" +  std::to_string(a);
-    	DEBUG(INDI::Logger::DBG_SESSION, "Attempting connection .\n");
+    	DEBUG(INDI::Logger::DBG_SESSION, "Attempting connection");
         sf = new Firmata(usbPort.c_str());
         if (sf->portOpen && strstr(sf->firmata_name, "SimpleDigitalFirmataRoofController")) {
-    	    IDLog("ARDUINO BOARD CONNECTED.\n");
-	    IDLog("FIRMATA VERSION:%s\n",sf->firmata_name);
-	    IDSetSwitch (getSwitch("CONNECTION"),"CONNECTED.FIRMATA VERSION:%s\n",sf->firmata_name);
-            return true;
+    	    DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD CONNECTED.");
+	    DEBUGF(INDI::Logger::DBG_SESSION, "FIRMATA VERSION:%s",sf->firmata_name);
+	    return true;
         } else {
-	DEBUG(INDI::Logger::DBG_SESSION,"Failed, trying next port.\n");
-	//delete sf;
-	//return false;
+            DEBUG(INDI::Logger::DBG_SESSION,"Failed, trying next port.\n");
         }
     }
-    IDLog("ARDUINO BOARD FAIL TO CONNECT.\n");
-    IDSetSwitch (getSwitch("CONNECTION"),"ARDUINO BOARD FAIL TO CONNECT. CHECK PORT NAME\n"); //TODO: is IDSetSwitch correct?
+    DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD FAIL TO CONNECT");
     delete sf;
     return false;
 }
@@ -179,7 +175,7 @@ bool RollOff::Disconnect()
 {
     sf->closePort();
     delete sf;	
-    IDLog("ARDUINO BOARD DISCONNECTED.\n");
+    DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD DISCONNECTED.");
     IDSetSwitch (getSwitch("CONNECTION"),"DISCONNECTED\n");
     return true;
 }
