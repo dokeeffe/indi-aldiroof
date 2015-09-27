@@ -10,7 +10,7 @@ The indi driver comminicates with the arduino using the frimata protocol.
 
 1. Electric hoist reworked to open and close the roof.
 1. Arduino Micro (to install firmware on)
-2. 4 X 30A relays 
+2. 4 X 30A relays http://www.dx.com/p/30a-250v-relay-module-red-blue-216873#.Vgg9-xNViko
 3. Project box (to contain arduino and relays)
 4. Linux machine running indi server (install the driver on).
 
