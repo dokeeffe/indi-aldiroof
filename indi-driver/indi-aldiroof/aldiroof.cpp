@@ -3,6 +3,15 @@ Aldi hoist powered observatory roof driver.
 
 Controls an arduino using firmata to switch on/off relays connected to a 550w 220v electric hoist.
 
+There are several safety overrides in place to stop the motors from 'going mad'.
+1) Mechanical: The motor (Hoist) has 2 microswitches normally used to stop the hoist when the load is fully lifted or cable is fully extended.
+       These microswitches are attached (via bicycle brake cables) to mechanical stops on the roof.
+       These will cut power to the hoist when fully open/closed
+2) Firmware: 2 Microswitches are also added to the roof which are wired into the arduino.
+       The arduino firmware will switch off the relays once any of the switches are on
+3) INDI driver: The indi driver (this code) will send a signal to the arduino to stop the motors once the fully open/close switch is activated
+    (this is essentially made redundant by 2 above)
+
 Sept 2015 Derek OKeeffe
 *******************************************************************************/
 #include "aldiroof.h"
@@ -129,6 +138,10 @@ bool RollOff::SetupParms()
 }
 
 
+/**
+* Connect to the arduino. Will iterate over all /dev/ttyACM* from 0-20 to find one with matching firmata name.
+* After finding and init of the Firmata object just return true.
+**/
 bool RollOff::Connect()
 {
     for( int a = 0; a < 20; a = a + 1 )
@@ -140,6 +153,7 @@ bool RollOff::Connect()
     	    DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD CONNECTED.");
 	        DEBUGF(INDI::Logger::DBG_SESSION, "FIRMATA VERSION:%s",sf->firmata_name);
 	        sf->reportDigitalPorts(1);
+	        sf->writeDigitalPin(4,ARDUINO_HIGH); //set pin4 to high (switch off motor). For some reason the first call to sf to set a pin will fail. So thats why this call is here. Its the safest call to make.
 	        return true;
         } else {
             DEBUG(INDI::Logger::DBG_SESSION,"Failed, trying next port.\n");
@@ -172,6 +186,9 @@ bool RollOff::updateProperties()
     return true;
 }
 
+/**
+* Disconnect from the arduino
+**/
 bool RollOff::Disconnect()
 {
     sf->closePort();
@@ -221,11 +238,13 @@ void RollOff::TimerHit()
 
        SetTimer(1000);
    }
-
-
-    //SetTimer(1000);
 }
 
+/**
+ * Move the roof. The arduino will take a request to set pin 3 on to switch on the relays to open the roof
+ * The arduino will take a request to set pin 2 on to switch on the relays to close the roof
+ * The arduino will take a request to set pin 4 to abort and switch off all relays
+ **/
 bool RollOff::Move(DomeDirection dir, DomeMotionCommand operation)
 {
     if (operation == MOTION_START)
@@ -278,6 +297,9 @@ bool RollOff::Move(DomeDirection dir, DomeMotionCommand operation)
 
 }
 
+/**
+ * Park the roof = close
+ **/
 IPState RollOff::Park()
 {    
     bool rc = INDI::Dome::Move(DOME_CCW, MOTION_START);
@@ -290,6 +312,9 @@ IPState RollOff::Park()
         return IPS_ALERT;
 }
 
+/**
+ * Unpark the roof = open
+ **/
 IPState RollOff::UnPark()
 {
     bool rc = INDI::Dome::Move(DOME_CW, MOTION_START);
@@ -302,6 +327,9 @@ IPState RollOff::UnPark()
         return IPS_ALERT;
 }
 
+/**
+ * Abort motion. The arduino will take a request to set pin 4 on to mean switch off all relays
+ **/
 bool RollOff::Abort()
 {
     DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 4(abort)");
@@ -322,6 +350,9 @@ bool RollOff::Abort()
     return true;
 }
 
+/**
+ * Get the state of the full open limit switch. This function will also switch off the motors as a safety override.
+ **/
 bool RollOff::getFullOpenedLimitSwitch()
 {    
     sf->OnIdle();
@@ -338,6 +369,9 @@ bool RollOff::getFullOpenedLimitSwitch()
     }
 }
 
+/**
+ * Get the state of the full closed limit switch. This function will also switch off the motors as a safety override.
+ **/
 bool RollOff::getFullClosedLimitSwitch()
 {
     sf->OnIdle();
