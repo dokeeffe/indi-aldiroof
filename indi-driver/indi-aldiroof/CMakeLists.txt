@@ -35,3 +35,5 @@ set(aldirolloff_SRCS
 add_executable(indi_aldiroof ${aldirolloff_SRCS})
 target_link_libraries(indi_aldiroof ${INDI_DRIVER_LIBRARIES} firmata)
 install(TARGETS indi_aldiroof RUNTIME DESTINATION bin )
+install(FILES indi_aldiroof.xml DESTINATION ${INDI_DATA_DIR})
+
