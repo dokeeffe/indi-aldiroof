@@ -138,8 +138,9 @@ bool RollOff::Connect()
         sf = new Firmata(usbPort.c_str());
         if (sf->portOpen && strstr(sf->firmata_name, "SimpleDigitalFirmataRoofController")) {
     	    DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD CONNECTED.");
-	    DEBUGF(INDI::Logger::DBG_SESSION, "FIRMATA VERSION:%s",sf->firmata_name);
-	    return true;
+	        DEBUGF(INDI::Logger::DBG_SESSION, "FIRMATA VERSION:%s",sf->firmata_name);
+	        sf->reportDigitalPorts(1);
+	        return true;
         } else {
             DEBUG(INDI::Logger::DBG_SESSION,"Failed, trying next port.\n");
         }
