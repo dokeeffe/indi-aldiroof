@@ -7,10 +7,8 @@ There are several safety overrides in place to stop the motors from 'going mad'.
 1) Mechanical: The motor (Hoist) has 2 microswitches normally used to stop the hoist when the load is fully lifted or cable is fully extended.
        These microswitches are attached (via bicycle brake cables) to mechanical stops on the roof.
        These will cut power to the hoist when fully open/closed
-2) Firmware: 2 Microswitches are also added to the roof which are wired into the arduino.
-       The arduino firmware will switch off the relays once any of the switches are on
-3) INDI driver: The indi driver (this code) will send a signal to the arduino to stop the motors once the fully open/close switch is activated
-    (this is essentially made redundant by 2 above)
+2) INDI driver: The indi driver (this code) will send a signal to the arduino to stop the motors once the fully open/close switch is activated
+    (this is essentially made redundant by 1 above)
 
 Sept 2015 Derek OKeeffe
 *******************************************************************************/

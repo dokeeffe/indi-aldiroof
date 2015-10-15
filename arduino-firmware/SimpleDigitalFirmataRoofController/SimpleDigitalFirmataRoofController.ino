@@ -13,7 +13,7 @@
 #include <Firmata.h>
 
 //constants
-const int maxHoistOnTime = 15000;
+const int maxHoistOnTime = 17000;
 //pin constants
 const int relayRoofOpenPin1 =  2;      // the number of the relay pin
 const int relayRoofClosePin1 =  3;      // the number of the relay pin
@@ -101,11 +101,6 @@ void loop()
   //Enforoce max time for roof hoist motor being on
   if (roofMotorRunDuration() > maxHoistOnTime) {
     roofState = roofStopped;
-  }
-  
-  //if any of the full stop switches are ON then just stop the motors & send data back to indi driver
-  if(digitalRead(8)==HIGH || digitalRead(9)==HIGH) {  
-    roofState = roofStopped; 
   }
 }
 
