@@ -339,7 +339,8 @@ bool RollOff::getFullOpenedLimitSwitch()
 }
 
 bool RollOff::getFullClosedLimitSwitch()
-{    
+{
+    sf->OnIdle();
     if (sf->pin_info[9].value > 0) {
         DEBUG(INDI::Logger::DBG_SESSION, "Fully Closed switch ON");
         DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 4(stop)");
