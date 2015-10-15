@@ -43,10 +43,10 @@ byte previousPORT[TOTAL_PORTS];
 void outputPort(byte portNumber, byte portValue)
 {
   // only send the data when it changes, otherwise you get too many messages!
-//  if (previousPIN[portNumber] != portValue) {
+ if (previousPIN[portNumber] != portValue) {
     Firmata.sendDigitalPort(portNumber, portValue);
     previousPIN[portNumber] = portValue;
-//  }
+  }
 }
 
 void digitalWriteCallback(byte port, int value)
@@ -93,14 +93,6 @@ void loop()
   for (i = 0; i < TOTAL_PORTS; i++) {
     outputPort(i, readPort(i, 0xff));
   }
-//  if(digitalRead(8)!=previousFullyClosedSwitchState) {
-//    previousFullyClosedSwitchState=digitalRead(8);
-//    Firmata.sendDigitalPort(8, digitalRead(8));
-//  }
-//  if(digitalRead(9)!=previousFullyClosedSwitchState) {
-//    previousFullyClosedSwitchState=digitalRead(9);
-//    Firmata.sendDigitalPort(8, digitalRead(9));
-//  }
 
   while (Firmata.available()) {
     Firmata.processInput();

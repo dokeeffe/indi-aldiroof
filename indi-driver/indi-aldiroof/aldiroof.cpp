@@ -248,17 +248,17 @@ bool RollOff::Move(DomeDirection dir, DomeMotionCommand operation)
         }
         else if (dir == DOME_CW)
         {
-            DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 2");
-            sf->writeDigitalPin(3,ARDUINO_LOW);
+            DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 3");
+            sf->writeDigitalPin(3,ARDUINO_HIGH);
             sf->writeDigitalPin(4,ARDUINO_LOW);
-            sf->writeDigitalPin(2,ARDUINO_HIGH);
+            sf->writeDigitalPin(2,ARDUINO_LOW);
         }                    
         else if (dir == DOME_CCW)
         {
-            DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 3");
-            sf->writeDigitalPin(2,ARDUINO_LOW);
+            DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 2");
+            sf->writeDigitalPin(2,ARDUINO_HIGH);
             sf->writeDigitalPin(4,ARDUINO_LOW);
-            sf->writeDigitalPin(3,ARDUINO_HIGH);
+            sf->writeDigitalPin(3,ARDUINO_LOW);
         }                    
 
         fullOpenLimitSwitch   = ISS_OFF;
@@ -333,7 +333,7 @@ bool RollOff::getFullOpenedLimitSwitch()
         sf->writeDigitalPin(4,ARDUINO_HIGH);
         return true;
     } else {
-//        DEBUG(INDI::Logger::DBG_SESSION, "Fully open switch OFF");
+        DEBUG(INDI::Logger::DBG_SESSION, "Fully open switch OFF");
         return false;
     }
 }
@@ -348,7 +348,7 @@ bool RollOff::getFullClosedLimitSwitch()
         sf->writeDigitalPin(4,ARDUINO_HIGH);
         return true;
     } else {
-//        DEBUG(INDI::Logger::DBG_SESSION, "Fully Closed switch OFF");
+        DEBUG(INDI::Logger::DBG_SESSION, "Fully Closed switch OFF");
         return false;
     }
 }
