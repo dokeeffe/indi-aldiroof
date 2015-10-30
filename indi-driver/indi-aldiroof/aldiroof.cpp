@@ -4,10 +4,10 @@ Aldi hoist powered observatory roof driver.
 Controls an arduino using firmata to switch on/off relays connected to a 550w 220v electric hoist.
 
 There are several safety overrides in place to stop the motors from 'going mad'.
-1) Mechanical: The motor (Hoist) has 2 microswitches normally used to stop the hoist when the load is fully lifted or cable is fully extended.
-       These microswitches are attached (via bicycle brake cables) to mechanical stops on the roof.
+1) Electro-Mechanical: This is the primary safety cut out. The hoist has 2 microswitches which are normally used to stop the hoist when the load is fully lifted or cable is fully extended.
+       These microswitches are attached (via bicycle brake cables) to mechanical-levers on the roof that get actuated when fully open/closed.
        These will cut power to the hoist when fully open/closed
-2) INDI driver: The indi driver (this code) will send a signal to the arduino to stop the motors once the fully open/close switch is activated
+2) INDI driver: 2 additional microswitches are used as digital inputs to the arduino. These are attached to the same mechanical-levers in 1 above. These digital inputs are used as the FullyClosedLimitSwitch and FullyOpenLimitSwitch in the code below. The indi driver (this code) will send a signal to the arduino to stop the motors once the fully open/close switch is activated
     (this is essentially made redundant by 1 above)
 
 Sept 2015 Derek OKeeffe
@@ -209,7 +209,6 @@ void RollOff::TimerHit()
        {
            DEBUG(INDI::Logger::DBG_SESSION, "Roof motion is stopped.");
            setDomeState(DOME_IDLE);
-           SetTimer(1000);
            return;
        }
 
@@ -233,8 +232,6 @@ void RollOff::TimerHit()
                return;
            }
        }
-
-       SetTimer(1000);
    }
 }
 
@@ -243,7 +240,7 @@ void RollOff::TimerHit()
  * The arduino will take a request to set pin 2 on to switch on the relays to close the roof
  * The arduino will take a request to set pin 4 to abort and switch off all relays
  **/
-bool RollOff::Move(DomeDirection dir, DomeMotionCommand operation)
+IPState RollOff::Move(DomeDirection dir, DomeMotionCommand operation)
 {
     if (operation == MOTION_START)
     {
@@ -251,17 +248,17 @@ bool RollOff::Move(DomeDirection dir, DomeMotionCommand operation)
         if (dir == DOME_CW && fullOpenLimitSwitch == ISS_ON)
         {
             DEBUG(INDI::Logger::DBG_WARNING, "Roof is already fully opened.");
-            return false;
+            return IPS_ALERT;
         }
         else if (dir == DOME_CW && getWeatherState() == IPS_ALERT)
         {
             DEBUG(INDI::Logger::DBG_WARNING, "Weather conditions are in the danger zone. Cannot open roof.");
-            return false;
+            return IPS_ALERT;
         }
         else if (dir == DOME_CCW && fullClosedLimitSwitch == ISS_ON)
         {
             DEBUG(INDI::Logger::DBG_WARNING, "Roof is already fully closed.");
-            return false;
+            return IPS_ALERT;
         }
         else if (dir == DOME_CW)
         {
@@ -278,20 +275,19 @@ bool RollOff::Move(DomeDirection dir, DomeMotionCommand operation)
             sf->writeDigitalPin(3,ARDUINO_LOW);
         }                    
 
-        fullOpenLimitSwitch   = ISS_OFF;
-        fullClosedLimitSwitch = ISS_OFF;
+//        fullOpenLimitSwitch   = ISS_OFF;
+//        fullClosedLimitSwitch = ISS_OFF;
         MotionRequest = ROLLOFF_DURATION;
         gettimeofday(&MotionStart,NULL);
-        SetTimer(1000);
-        return true;
+        return IPS_BUSY;
     }
     else
     {
-        return Dome::Abort();
+        return (Dome::Abort() ? IPS_OK : IPS_ALERT);
 
     }
 
-    return false;
+    return IPS_ALERT;
 
 }
 
