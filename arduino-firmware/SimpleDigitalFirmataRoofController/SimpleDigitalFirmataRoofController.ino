@@ -36,10 +36,12 @@ volatile int previousFullyOpenSwitchState = LOW;
 
 long hoistOnTime = 0;
 
-
 byte previousPIN[TOTAL_PORTS];  // PIN means PORT for input
 byte previousPORT[TOTAL_PORTS];
 
+/**
+ * Send change messages to clients. (not actually needed for the indi driver as it asksState)
+ */
 void outputPort(byte portNumber, byte portValue)
 {
   // only send the data when it changes, otherwise you get too many messages!
@@ -49,6 +51,18 @@ void outputPort(byte portNumber, byte portValue)
   }
 }
 
+
+void reportDigitalCallback(byte port, int value)
+{
+  if (port < TOTAL_PORTS) {
+    Firmata.sendDigitalPort(port, value);
+  }
+}
+
+
+/**
+ * Used to by client to set state
+ */
 void digitalWriteCallback(byte port, int value)
 {
   byte i;
@@ -75,21 +89,20 @@ void setup()
 {
   Firmata.setFirmwareVersion(FIRMATA_MAJOR_VERSION, FIRMATA_MINOR_VERSION);
   Firmata.attach(DIGITAL_MESSAGE, digitalWriteCallback);
+//  Firmata.attach(REPORT_DIGITAL, reportDigitalCallback);
   Firmata.begin(57600);
-  pinMode(2, OUTPUT);
-  pinMode(3, OUTPUT);
-  pinMode(4, OUTPUT);
-  pinMode(5, OUTPUT);
-  pinMode(6, INPUT);
-  pinMode(7, INPUT);
-  pinMode(8, INPUT);
-  pinMode(9, INPUT);
+  pinMode(2, OUTPUT); //Relay
+  pinMode(3, OUTPUT); //Relay
+  pinMode(4, OUTPUT); //Relay
+  pinMode(5, OUTPUT); //Relay
+  pinMode(13, OUTPUT); //LED just for testing the roof stop switches are working
+  pinMode(8, INPUT); //limit switch
+  pinMode(9, INPUT); //limit switch
 }
 
 void loop()
 {
   byte i;
-
   for (i = 0; i < TOTAL_PORTS; i++) {
     outputPort(i, readPort(i, 0xff));
   }
@@ -102,8 +115,14 @@ void loop()
   if (roofMotorRunDuration() > maxHoistOnTime) {
     roofState = roofStopped;
   }
-}
 
+  //switch on led on board if any switch is on
+  if(digitalRead(9)==HIGH) {
+    digitalWrite(13, HIGH);
+  } else {
+    digitalWrite(13, LOW);
+  }
+}
 
 /**
  * Handle the state of the roof. Act on state change
