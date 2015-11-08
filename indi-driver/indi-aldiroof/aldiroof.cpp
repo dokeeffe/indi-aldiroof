@@ -87,7 +87,7 @@ void ISSnoopDevice (XMLEle *root)
 
 RollOff::RollOff()
 {
-  fullOpenLimitSwitch   = ISS_ON;
+  fullOpenLimitSwitch   = ISS_OFF;
   fullClosedLimitSwitch = ISS_OFF;
   MotionRequest=0;
   SetDomeCapability(DOME_CAN_ABORT | DOME_CAN_PARK);
@@ -98,40 +98,26 @@ RollOff::RollOff()
 * ***********************************************************************************/
 bool RollOff::initProperties()
 {
+    DEBUG(INDI::Logger::DBG_SESSION, "Init props");
     INDI::Dome::initProperties();
-
     SetParkDataType(PARK_NONE);
-
     addAuxControls();
-
     return true;
 }
 
 bool RollOff::SetupParms()
 {
-    // If we have parking data
-    if (InitPark())
-    {
-        if (isParked())
-        {
-            fullOpenLimitSwitch   = ISS_OFF;
-            fullClosedLimitSwitch = ISS_ON;
-        }
-        else
-        {
-            fullOpenLimitSwitch   = ISS_ON;
-            fullClosedLimitSwitch = ISS_OFF;
-        }
+    DEBUG(INDI::Logger::DBG_SESSION, "Setting up params");
+    fullOpenLimitSwitch   = ISS_OFF;
+    fullClosedLimitSwitch = ISS_OFF;
+    if (getFullClosedLimitSwitch()) {
+        DEBUG(INDI::Logger::DBG_SESSION, "Setting closed flag on");
+        fullClosedLimitSwitch = ISS_ON;
     }
-    // If we don't have parking data
-    else
-    {
-        fullOpenLimitSwitch   = ISS_OFF;
-        fullClosedLimitSwitch = ISS_OFF;
+    if (getFullOpenedLimitSwitch()) {
+        DEBUG(INDI::Logger::DBG_SESSION, "Setting open flag on");
+        fullOpenLimitSwitch = ISS_ON;
     }
-
-
-
     return true;
 }
 
@@ -139,6 +125,7 @@ bool RollOff::SetupParms()
 /**
 * Connect to the arduino. Will iterate over all /dev/ttyACM* from 0-20 to find one with matching firmata name.
 * After finding and init of the Firmata object just return true.
+* CAUTION: If you have another non firmata device at /dev/ttyACM? then this may cause it to misbehave.
 **/
 bool RollOff::Connect()
 {
@@ -174,6 +161,7 @@ const char * RollOff::getDefaultName()
 
 bool RollOff::updateProperties()
 {
+    DEBUG(INDI::Logger::DBG_SESSION, "Updating props");
     INDI::Dome::updateProperties();
 
     if (isConnected())
@@ -200,6 +188,7 @@ bool RollOff::Disconnect()
 void RollOff::TimerHit()
 {
 
+    DEBUG(INDI::Logger::DBG_SESSION, "Timer hit");
     if(isConnected() == false) return;  //  No need to reset timer if we are not connected anymore    
 
    if (DomeMotionSP.s == IPS_BUSY)
@@ -209,6 +198,7 @@ void RollOff::TimerHit()
        {
            DEBUG(INDI::Logger::DBG_SESSION, "Roof motion is stopped.");
            setDomeState(DOME_IDLE);
+           SetTimer(1000);
            return;
        }
 
@@ -218,7 +208,7 @@ void RollOff::TimerHit()
            if (getFullOpenedLimitSwitch())
            {
                DEBUG(INDI::Logger::DBG_SESSION, "Roof is open.");
-               SetParked(false);
+               //SetParked(false);
                return;
            }
        }
@@ -228,10 +218,12 @@ void RollOff::TimerHit()
            if (getFullClosedLimitSwitch())
            {
                DEBUG(INDI::Logger::DBG_SESSION, "Roof is closed.");
-               SetParked(true);
+               setDomeState(DOME_PARKED);
+               //SetParked(true);
                return;
            }
        }
+       SetTimer(1000);
    }
 }
 
@@ -279,6 +271,7 @@ IPState RollOff::Move(DomeDirection dir, DomeMotionCommand operation)
 //        fullClosedLimitSwitch = ISS_OFF;
         MotionRequest = ROLLOFF_DURATION;
         gettimeofday(&MotionStart,NULL);
+        SetTimer(1000);
         return IPS_BUSY;
     }
     else
@@ -349,7 +342,8 @@ bool RollOff::Abort()
  **/
 bool RollOff::getFullOpenedLimitSwitch()
 {    
-    sf->OnIdle();
+    DEBUG(INDI::Logger::DBG_SESSION, "Checking pin 8 state");
+    sf->askPinState(8);
     if (sf->pin_info[8].value > 0) {
         DEBUG(INDI::Logger::DBG_SESSION, "Fully open switch ON");
         DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 4(stop)");
@@ -368,7 +362,8 @@ bool RollOff::getFullOpenedLimitSwitch()
  **/
 bool RollOff::getFullClosedLimitSwitch()
 {
-    sf->OnIdle();
+    DEBUG(INDI::Logger::DBG_SESSION, "Checking pin 9 state");
+    sf->askPinState(9);
     if (sf->pin_info[9].value > 0) {
         DEBUG(INDI::Logger::DBG_SESSION, "Fully Closed switch ON");
         DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 4(stop)");
