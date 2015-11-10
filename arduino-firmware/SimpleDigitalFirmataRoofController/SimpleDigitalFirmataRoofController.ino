@@ -35,6 +35,8 @@ volatile int previousFullyClosedSwitchState = LOW;
 volatile int previousFullyOpenSwitchState = LOW;
 
 long hoistOnTime = 0;
+long ledOnTime = 0;
+bool ledState;
 
 byte previousPIN[TOTAL_PORTS];  // PIN means PORT for input
 byte previousPORT[TOTAL_PORTS];
@@ -98,6 +100,8 @@ void setup()
   pinMode(13, OUTPUT); //LED just for testing the roof stop switches are working
   pinMode(8, INPUT); //limit switch
   pinMode(9, INPUT); //limit switch
+  pinMode(10, OUTPUT); //LED
+  pinMode(11, OUTPUT); //LED
 }
 
 void loop()
@@ -116,12 +120,8 @@ void loop()
     roofState = roofStopped;
   }
 
-  //switch on led on board if any switch is on
-  if(digitalRead(9)==HIGH) {
-    digitalWrite(13, HIGH);
-  } else {
-    digitalWrite(13, LOW);
-  }
+  //switch on led if any stop-switch is on. Flash them if roof moving.
+  handleLEDs();
 }
 
 /**
@@ -192,3 +192,38 @@ long roofMotorRunDuration() {
     return 0;
   }
 }
+
+/**
+ * LEDs are used to provide visual clues to the state of the roof controller. Really not needed but handy when stuff goes wrong.
+ * Flash LEDS when moving, Switch one LED on if the corresponding stop switch is on.
+ */
+void handleLEDs() {
+  if (roofState == roofOpening || roofState == roofClosing) {  
+    if (millis() - ledOnTime > 100) {
+       ledOnTime = millis();
+       if (ledState == false ) {
+        ledState = true;
+        digitalWrite(10, HIGH);
+        digitalWrite(11, HIGH);
+       } else {
+          ledState = false;
+          digitalWrite(10, LOW);
+          digitalWrite(11, LOW);
+       }
+    }
+    
+  } else {
+    //Set an LED on if the corresponding fully open switch is on.
+    if(digitalRead(9)==HIGH) {
+      digitalWrite(11, HIGH);
+    } else {
+      digitalWrite(11, LOW);
+    }
+    if(digitalRead(8)==HIGH) {
+      digitalWrite(10, HIGH);
+    } else {
+      digitalWrite(10, LOW);
+    }
+  }
+}
+
