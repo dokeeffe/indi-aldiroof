@@ -3,6 +3,8 @@ Aldi hoist powered observatory roof driver.
 
 Controls an arduino using firmata to switch on/off relays connected to a 550w 220v electric hoist.
 
+NOTE: Firmata does not function well over USB3. Always use a USB2 port!!! In future I'm going to scrap firmata and use an HTTP interface. Firmata sucks!
+
 There are several safety overrides in place to stop the motors from 'going mad'.
 1) Electro-Mechanical: This is the primary safety cut out. The hoist has 2 microswitches which are normally used to stop the hoist when the load is fully lifted or cable is fully extended.
        These microswitches are attached (via bicycle brake cables) to mechanical-levers on the roof that get actuated when fully open/closed.
@@ -110,14 +112,17 @@ bool RollOff::SetupParms()
     DEBUG(INDI::Logger::DBG_SESSION, "Setting up params");
     fullOpenLimitSwitch   = ISS_OFF;
     fullClosedLimitSwitch = ISS_OFF;
-    if (getFullClosedLimitSwitch()) {
-        DEBUG(INDI::Logger::DBG_SESSION, "Setting closed flag on");
-        fullClosedLimitSwitch = ISS_ON;
-    }
     if (getFullOpenedLimitSwitch()) {
         DEBUG(INDI::Logger::DBG_SESSION, "Setting open flag on");
         fullOpenLimitSwitch = ISS_ON;
+        setDomeState(DOME_IDLE);
     }
+    if (getFullClosedLimitSwitch()) {
+        DEBUG(INDI::Logger::DBG_SESSION, "Setting closed flag on");
+        fullClosedLimitSwitch = ISS_ON;
+        setDomeState(DOME_PARKED);
+    }
+    
     return true;
 }
 
@@ -137,8 +142,10 @@ bool RollOff::Connect()
         if (sf->portOpen && strstr(sf->firmata_name, "SimpleDigitalFirmataRoofController")) {
     	    DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD CONNECTED.");
 	        DEBUGF(INDI::Logger::DBG_SESSION, "FIRMATA VERSION:%s",sf->firmata_name);
+	        sf->setPinMode(8,FIRMATA_MODE_INPUT);
+	        sf->setPinMode(9,FIRMATA_MODE_INPUT);
 	        sf->reportDigitalPorts(1);
-	        sf->writeDigitalPin(4,ARDUINO_HIGH); //set pin4 to high (switch off motor). For some reason the first call to sf to set a pin will fail. So thats why this call is here. Its the safest call to make.
+                sf->writeDigitalPin(4,ARDUINO_HIGH); //set pin4 to high (switch off motor). For some reason the first call to sf to set a pin will fail. So thats why this call is here. Its the safest call to make. Seriously regret using firmata for this
 	        return true;
         } else {
             DEBUG(INDI::Logger::DBG_SESSION,"Failed, trying next port.\n");
@@ -208,6 +215,7 @@ void RollOff::TimerHit()
            if (getFullOpenedLimitSwitch())
            {
                DEBUG(INDI::Logger::DBG_SESSION, "Roof is open.");
+               setDomeState(DOME_IDLE);
                //SetParked(false);
                return;
            }
@@ -236,6 +244,7 @@ IPState RollOff::Move(DomeDirection dir, DomeMotionCommand operation)
 {
     if (operation == MOTION_START)
     {
+        updateProperties();
         // DOME_CW --> OPEN. If can we are ask to "open" while we are fully opened as the limit switch indicates, then we simply return false.
         if (dir == DOME_CW && fullOpenLimitSwitch == ISS_ON)
         {
@@ -343,13 +352,16 @@ bool RollOff::Abort()
 bool RollOff::getFullOpenedLimitSwitch()
 {    
     DEBUG(INDI::Logger::DBG_SESSION, "Checking pin 8 state");
+    sf->OnIdle();
     sf->askPinState(8);
     if (sf->pin_info[8].value > 0) {
+        DEBUGF(INDI::Logger::DBG_SESSION, "Fully open switch value=%d",sf->pin_info[8].value);
         DEBUG(INDI::Logger::DBG_SESSION, "Fully open switch ON");
         DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 4(stop)");
         sf->writeDigitalPin(2,ARDUINO_LOW);
         sf->writeDigitalPin(3,ARDUINO_LOW);
         sf->writeDigitalPin(4,ARDUINO_HIGH);
+        fullOpenLimitSwitch = ISS_ON;
         return true;
     } else {
         DEBUG(INDI::Logger::DBG_SESSION, "Fully open switch OFF");
@@ -363,13 +375,16 @@ bool RollOff::getFullOpenedLimitSwitch()
 bool RollOff::getFullClosedLimitSwitch()
 {
     DEBUG(INDI::Logger::DBG_SESSION, "Checking pin 9 state");
+    sf->OnIdle();
     sf->askPinState(9);
     if (sf->pin_info[9].value > 0) {
+        DEBUGF(INDI::Logger::DBG_SESSION, "Fully Closed switch value =%d",sf->pin_info[9].value);
         DEBUG(INDI::Logger::DBG_SESSION, "Fully Closed switch ON");
         DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 4(stop)");
         sf->writeDigitalPin(2,ARDUINO_LOW);
         sf->writeDigitalPin(3,ARDUINO_LOW);
         sf->writeDigitalPin(4,ARDUINO_HIGH);
+        fullClosedLimitSwitch = ISS_ON;
         return true;
     } else {
         DEBUG(INDI::Logger::DBG_SESSION, "Fully Closed switch OFF");
