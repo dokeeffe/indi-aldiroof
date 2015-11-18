@@ -116,14 +116,11 @@ bool AldiRoof::SetupParms()
         DEBUG(INDI::Logger::DBG_SESSION, "Setting open flag on");
         fullOpenLimitSwitch = ISS_ON;
         setDomeState(DOME_IDLE);
-        SetParked(false);
     }
     if (getFullClosedLimitSwitch()) {
         DEBUG(INDI::Logger::DBG_SESSION, "Setting closed flag on");
         fullClosedLimitSwitch = ISS_ON;
         setDomeState(DOME_PARKED);
-        SetParked(true);
-
     }
     
     return true;
@@ -228,7 +225,12 @@ void AldiRoof::TimerHit()
            {
                DEBUG(INDI::Logger::DBG_SESSION, "Roof is open.");
                setDomeState(DOME_IDLE);
-               SetParked(false); 
+               //SetParked(false); 
+               //calling setParked(false) here caauses the driver to crash with nothing logged (looks like possibly an issue writing parking data). Therefore the next 4 lines are doing what is done in indidome.cpp' function. We dont care about parking data anyway as we get the parked state directly from the roof stop-switches.
+               IUResetSwitch(&ParkSP);
+               ParkS[1].s = ISS_ON;
+               ParkSP.s = IPS_OK;
+               IDSetSwitch(&ParkSP, NULL);
                return;
            }
            if (CalcTimeLeft(MotionStart) <= 0) {
@@ -243,7 +245,7 @@ void AldiRoof::TimerHit()
            {
                DEBUG(INDI::Logger::DBG_SESSION, "Roof is closed.");
                setDomeState(DOME_PARKED);
-               SetParked(true);
+               //SetParked(true);
                return;
            }
            if (CalcTimeLeft(MotionStart) <= 0) {
