@@ -116,11 +116,14 @@ bool AldiRoof::SetupParms()
         DEBUG(INDI::Logger::DBG_SESSION, "Setting open flag on");
         fullOpenLimitSwitch = ISS_ON;
         setDomeState(DOME_IDLE);
+        SetParked(false);
     }
     if (getFullClosedLimitSwitch()) {
         DEBUG(INDI::Logger::DBG_SESSION, "Setting closed flag on");
         fullClosedLimitSwitch = ISS_ON;
         setDomeState(DOME_PARKED);
+        SetParked(true);
+
     }
     
     return true;
@@ -225,12 +228,12 @@ void AldiRoof::TimerHit()
            {
                DEBUG(INDI::Logger::DBG_SESSION, "Roof is open.");
                setDomeState(DOME_IDLE);
-               //SetParked(false); //calling setParked(false) here caauses the driver to crash with nothing logged (looks like possibly an issue writing parking data). Therefore the next 4 lines are doing what is done in indidome.cpp' function. We dont care about parking data anyway as we get the parked state directly from the roof stop-switches.
-               IUResetSwitch(&ParkSP);
-               ParkS[1].s = ISS_ON;
-               ParkSP.s = IPS_OK;
-               IDSetSwitch(&ParkSP, NULL);
+               SetParked(false); 
                return;
+           }
+           if (CalcTimeLeft(MotionStart) <= 0) {
+               DEBUG(INDI::Logger::DBG_SESSION, "Exceeded max motor run duration. Aborting.");
+               Abort();
            }
        }
        // Roll Off is closing
@@ -240,8 +243,12 @@ void AldiRoof::TimerHit()
            {
                DEBUG(INDI::Logger::DBG_SESSION, "Roof is closed.");
                setDomeState(DOME_PARKED);
-               //SetParked(true);
+               SetParked(true);
                return;
+           }
+           if (CalcTimeLeft(MotionStart) <= 0) {
+               DEBUG(INDI::Logger::DBG_SESSION, "Exceeded max motor run duration. Aborting.");
+               Abort();
            }
        }
        SetTimer(1000);
@@ -284,7 +291,7 @@ IPState AldiRoof::Move(DomeDirection dir, DomeMotionCommand operation)
             sf->sendStringData((char *)"CLOSE");
         }                    
 
-        //MotionRequest = ROLLOFF_DURATION;
+        MotionRequest = MAX_ROLLOFF_DURATION;
         gettimeofday(&MotionStart,NULL);
         SetTimer(1000);
         return IPS_BUSY;
@@ -339,7 +346,7 @@ bool AldiRoof::Abort()
     MotionRequest=-1;
 
     // If both limit switches are off, then we're neither parked nor unparked.
-    if (fullOpenLimitSwitch == false && fullClosedLimitSwitch == false)
+    if (getFullOpenedLimitSwitch() == false && getFullClosedLimitSwitch() == false)
     {
         IUResetSwitch(&ParkSP);
         ParkSP.s = IPS_IDLE;
@@ -347,6 +354,19 @@ bool AldiRoof::Abort()
     }
 
     return true;
+}
+
+float AldiRoof::CalcTimeLeft(timeval start)
+{
+    double timesince;
+    double timeleft;
+    struct timeval now;
+    gettimeofday(&now,NULL);
+
+    timesince=(double)(now.tv_sec * 1000.0 + now.tv_usec/1000) - (double)(start.tv_sec * 1000.0 + start.tv_usec/1000);
+    timesince=timesince/1000;
+    timeleft=MotionRequest-timesince;
+    return timeleft;
 }
 
 /**

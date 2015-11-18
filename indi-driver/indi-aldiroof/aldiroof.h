@@ -46,6 +46,8 @@ class AldiRoof : public INDI::Dome
         struct timeval MotionStart;
         bool SetupParms();
         
+        float CalcTimeLeft(timeval);
+        
         Firmata* sf;
 
 };
