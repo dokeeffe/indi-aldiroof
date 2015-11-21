@@ -26,10 +26,10 @@ Sept 2015 Derek OKeeffe
 
 #include <indicom.h>
 
-// We declare an auto pointer to RollOff.
-std::auto_ptr<RollOff> rollOff(0);
+// We declare an auto pointer to AldiRoof.
+std::auto_ptr<AldiRoof> rollOff(0);
 
-#define ROLLOFF_DURATION    10      // TODO: remove this timer stuff which came from the simulator
+#define MAX_ROLLOFF_DURATION    17      // This is the max ontime for the motors. Safety cut out. Although a lot of damage can be done on this time!! 
 
 void ISPoll(void *p);
 
@@ -41,7 +41,7 @@ void ISInit()
        return;
 
     isInit = 1;
-    if(rollOff.get() == 0) rollOff.reset(new RollOff());
+    if(rollOff.get() == 0) rollOff.reset(new AldiRoof());
 
 }
 
@@ -87,7 +87,7 @@ void ISSnoopDevice (XMLEle *root)
     rollOff->ISSnoopDevice(root);
 }
 
-RollOff::RollOff()
+AldiRoof::AldiRoof()
 {
   fullOpenLimitSwitch   = ISS_OFF;
   fullClosedLimitSwitch = ISS_OFF;
@@ -98,7 +98,7 @@ RollOff::RollOff()
 /************************************************************************************
  *
 * ***********************************************************************************/
-bool RollOff::initProperties()
+bool AldiRoof::initProperties()
 {
     DEBUG(INDI::Logger::DBG_SESSION, "Init props");
     INDI::Dome::initProperties();
@@ -107,7 +107,7 @@ bool RollOff::initProperties()
     return true;
 }
 
-bool RollOff::SetupParms()
+bool AldiRoof::SetupParms()
 {
     DEBUG(INDI::Logger::DBG_SESSION, "Setting up params");
     fullOpenLimitSwitch   = ISS_OFF;
@@ -132,7 +132,7 @@ bool RollOff::SetupParms()
 * After finding and init of the Firmata object just return true.
 * CAUTION: If you have another non firmata device at /dev/ttyACM? then this may cause it to misbehave.
 **/
-bool RollOff::Connect()
+bool AldiRoof::Connect()
 {
     for( int a = 0; a < 20; a = a + 1 )
     {
@@ -142,10 +142,17 @@ bool RollOff::Connect()
         if (sf->portOpen && strstr(sf->firmata_name, "SimpleDigitalFirmataRoofController")) {
     	    DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD CONNECTED.");
 	        DEBUGF(INDI::Logger::DBG_SESSION, "FIRMATA VERSION:%s",sf->firmata_name);
+                sf->systemReset();
 	        sf->setPinMode(8,FIRMATA_MODE_INPUT);
-	        sf->setPinMode(9,FIRMATA_MODE_INPUT);
+                sf->setPinMode(9,FIRMATA_MODE_INPUT);
+                sf->setPinMode(2,FIRMATA_MODE_OUTPUT);
+                sf->setPinMode(3,FIRMATA_MODE_OUTPUT);
+                sf->setPinMode(4,FIRMATA_MODE_OUTPUT);
+                sf->setPinMode(5,FIRMATA_MODE_OUTPUT);
+                sf->setPinMode(10,FIRMATA_MODE_OUTPUT);
+                sf->setPinMode(11,FIRMATA_MODE_OUTPUT);
+                
 	        sf->reportDigitalPorts(1);
-                sf->writeDigitalPin(4,ARDUINO_HIGH); //set pin4 to high (switch off motor). For some reason the first call to sf to set a pin will fail. So thats why this call is here. Its the safest call to make. Seriously regret using firmata for this
 	        return true;
         } else {
             DEBUG(INDI::Logger::DBG_SESSION,"Failed, trying next port.\n");
@@ -156,17 +163,17 @@ bool RollOff::Connect()
     return false;
 }
 
-RollOff::~RollOff()
+AldiRoof::~AldiRoof()
 {
 
 }
 
-const char * RollOff::getDefaultName()
+const char * AldiRoof::getDefaultName()
 {
         return (char *)"Aldi roof";
 }
 
-bool RollOff::updateProperties()
+bool AldiRoof::updateProperties()
 {
     DEBUG(INDI::Logger::DBG_SESSION, "Updating props");
     INDI::Dome::updateProperties();
@@ -182,7 +189,7 @@ bool RollOff::updateProperties()
 /**
 * Disconnect from the arduino
 **/
-bool RollOff::Disconnect()
+bool AldiRoof::Disconnect()
 {
     sf->closePort();
     delete sf;	
@@ -191,8 +198,10 @@ bool RollOff::Disconnect()
     return true;
 }
 
-
-void RollOff::TimerHit()
+/**
+ * TimerHit gets called by the indi client every 1sec when the roof is moving.
+ */
+void AldiRoof::TimerHit()
 {
 
     DEBUG(INDI::Logger::DBG_SESSION, "Timer hit");
@@ -216,8 +225,17 @@ void RollOff::TimerHit()
            {
                DEBUG(INDI::Logger::DBG_SESSION, "Roof is open.");
                setDomeState(DOME_IDLE);
-               //SetParked(false);
+               //SetParked(false); 
+               //calling setParked(false) here caauses the driver to crash with nothing logged (looks like possibly an issue writing parking data). Therefore the next 4 lines are doing what is done in indidome.cpp' function. We dont care about parking data anyway as we get the parked state directly from the roof stop-switches.
+               IUResetSwitch(&ParkSP);
+               ParkS[1].s = ISS_ON;
+               ParkSP.s = IPS_OK;
+               IDSetSwitch(&ParkSP, NULL);
                return;
+           }
+           if (CalcTimeLeft(MotionStart) <= 0) {
+               DEBUG(INDI::Logger::DBG_SESSION, "Exceeded max motor run duration. Aborting.");
+               Abort();
            }
        }
        // Roll Off is closing
@@ -230,17 +248,20 @@ void RollOff::TimerHit()
                //SetParked(true);
                return;
            }
+           if (CalcTimeLeft(MotionStart) <= 0) {
+               DEBUG(INDI::Logger::DBG_SESSION, "Exceeded max motor run duration. Aborting.");
+               Abort();
+           }
        }
        SetTimer(1000);
    }
 }
 
 /**
- * Move the roof. The arduino will take a request to set pin 3 on to switch on the relays to open the roof
- * The arduino will take a request to set pin 2 on to switch on the relays to close the roof
- * The arduino will take a request to set pin 4 to abort and switch off all relays
+ * Move the roof. Send the command string over frimata to the arduino.
+ * 
  **/
-IPState RollOff::Move(DomeDirection dir, DomeMotionCommand operation)
+IPState AldiRoof::Move(DomeDirection dir, DomeMotionCommand operation)
 {
     if (operation == MOTION_START)
     {
@@ -263,22 +284,16 @@ IPState RollOff::Move(DomeDirection dir, DomeMotionCommand operation)
         }
         else if (dir == DOME_CW)
         {
-            DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 3");
-            sf->writeDigitalPin(3,ARDUINO_HIGH);
-            sf->writeDigitalPin(4,ARDUINO_LOW);
-            sf->writeDigitalPin(2,ARDUINO_LOW);
+            DEBUG(INDI::Logger::DBG_SESSION, "Sending command OPEN");
+            sf->sendStringData((char *)"OPEN");
         }                    
         else if (dir == DOME_CCW)
         {
-            DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 2");
-            sf->writeDigitalPin(2,ARDUINO_HIGH);
-            sf->writeDigitalPin(4,ARDUINO_LOW);
-            sf->writeDigitalPin(3,ARDUINO_LOW);
+            DEBUG(INDI::Logger::DBG_SESSION, "Sending command CLOSE");
+            sf->sendStringData((char *)"CLOSE");
         }                    
 
-//        fullOpenLimitSwitch   = ISS_OFF;
-//        fullClosedLimitSwitch = ISS_OFF;
-        MotionRequest = ROLLOFF_DURATION;
+        MotionRequest = MAX_ROLLOFF_DURATION;
         gettimeofday(&MotionStart,NULL);
         SetTimer(1000);
         return IPS_BUSY;
@@ -296,7 +311,7 @@ IPState RollOff::Move(DomeDirection dir, DomeMotionCommand operation)
 /**
  * Park the roof = close
  **/
-IPState RollOff::Park()
+IPState AldiRoof::Park()
 {    
     bool rc = INDI::Dome::Move(DOME_CCW, MOTION_START);
     if (rc)
@@ -311,7 +326,7 @@ IPState RollOff::Park()
 /**
  * Unpark the roof = open
  **/
-IPState RollOff::UnPark()
+IPState AldiRoof::UnPark()
 {
     bool rc = INDI::Dome::Move(DOME_CW, MOTION_START);
     if (rc)
@@ -326,17 +341,14 @@ IPState RollOff::UnPark()
 /**
  * Abort motion. The arduino will take a request to set pin 4 on to mean switch off all relays
  **/
-bool RollOff::Abort()
+bool AldiRoof::Abort()
 {
-    DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 4(abort)");
-    sf->writeDigitalPin(2,ARDUINO_LOW);
-    sf->writeDigitalPin(3,ARDUINO_LOW);
-    sf->writeDigitalPin(4,ARDUINO_HIGH);
-            
+    DEBUG(INDI::Logger::DBG_SESSION, "Sending command ABORT");
+    sf->sendStringData((char *)"ABORT");
     MotionRequest=-1;
 
     // If both limit switches are off, then we're neither parked nor unparked.
-    if (fullOpenLimitSwitch == false && fullClosedLimitSwitch == false)
+    if (getFullOpenedLimitSwitch() == false && getFullClosedLimitSwitch() == false)
     {
         IUResetSwitch(&ParkSP);
         ParkSP.s = IPS_IDLE;
@@ -346,21 +358,32 @@ bool RollOff::Abort()
     return true;
 }
 
+float AldiRoof::CalcTimeLeft(timeval start)
+{
+    double timesince;
+    double timeleft;
+    struct timeval now;
+    gettimeofday(&now,NULL);
+
+    timesince=(double)(now.tv_sec * 1000.0 + now.tv_usec/1000) - (double)(start.tv_sec * 1000.0 + start.tv_usec/1000);
+    timesince=timesince/1000;
+    timeleft=MotionRequest-timesince;
+    return timeleft;
+}
+
 /**
  * Get the state of the full open limit switch. This function will also switch off the motors as a safety override.
  **/
-bool RollOff::getFullOpenedLimitSwitch()
+bool AldiRoof::getFullOpenedLimitSwitch()
 {    
     DEBUG(INDI::Logger::DBG_SESSION, "Checking pin 8 state");
-    sf->OnIdle();
     sf->askPinState(8);
-    if (sf->pin_info[8].value > 0) {
-        DEBUGF(INDI::Logger::DBG_SESSION, "Fully open switch value=%d",sf->pin_info[8].value);
+    sf->OnIdle();
+    DEBUGF(INDI::Logger::DBG_SESSION, "Fully open switch value=%d",sf->pin_info[8].value);
+    if (sf->pin_info[8].value == 1) {
         DEBUG(INDI::Logger::DBG_SESSION, "Fully open switch ON");
-        DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 4(stop)");
-        sf->writeDigitalPin(2,ARDUINO_LOW);
-        sf->writeDigitalPin(3,ARDUINO_LOW);
-        sf->writeDigitalPin(4,ARDUINO_HIGH);
+        DEBUG(INDI::Logger::DBG_SESSION, "Sending command ABORT");
+        sf->sendStringData((char *)"ABORT");
         fullOpenLimitSwitch = ISS_ON;
         return true;
     } else {
@@ -372,18 +395,16 @@ bool RollOff::getFullOpenedLimitSwitch()
 /**
  * Get the state of the full closed limit switch. This function will also switch off the motors as a safety override.
  **/
-bool RollOff::getFullClosedLimitSwitch()
+bool AldiRoof::getFullClosedLimitSwitch()
 {
     DEBUG(INDI::Logger::DBG_SESSION, "Checking pin 9 state");
-    sf->OnIdle();
     sf->askPinState(9);
-    if (sf->pin_info[9].value > 0) {
-        DEBUGF(INDI::Logger::DBG_SESSION, "Fully Closed switch value =%d",sf->pin_info[9].value);
+    sf->OnIdle();
+    DEBUGF(INDI::Logger::DBG_SESSION, "Fully Closed switch value =%d",sf->pin_info[9].value);
+    if (sf->pin_info[9].value == 1) {        
         DEBUG(INDI::Logger::DBG_SESSION, "Fully Closed switch ON");
-        DEBUG(INDI::Logger::DBG_SESSION, "Switching ON arduino pin 4(stop)");
-        sf->writeDigitalPin(2,ARDUINO_LOW);
-        sf->writeDigitalPin(3,ARDUINO_LOW);
-        sf->writeDigitalPin(4,ARDUINO_HIGH);
+        DEBUG(INDI::Logger::DBG_SESSION, "Sending command ABORT");
+        sf->sendStringData((char *)"ABORT");
         fullClosedLimitSwitch = ISS_ON;
         return true;
     } else {

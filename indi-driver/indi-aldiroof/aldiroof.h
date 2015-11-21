@@ -1,5 +1,5 @@
-#ifndef RollOff_H
-#define RollOff_H
+#ifndef AldiRoof_H
+#define AldiRoof_H
 
 #include <indidome.h>
 
@@ -11,12 +11,12 @@
 #include "firmata.h"
 
 
-class RollOff : public INDI::Dome
+class AldiRoof : public INDI::Dome
 {
 
     public:
-        RollOff();
-        virtual ~RollOff();
+        AldiRoof();
+        virtual ~AldiRoof();
 
         virtual bool initProperties();
         const char *getDefaultName();
@@ -45,7 +45,7 @@ class RollOff : public INDI::Dome
         double MotionRequest;
         struct timeval MotionStart;
         bool SetupParms();
-
+        
         float CalcTimeLeft(timeval);
         
         Firmata* sf;
