@@ -3,11 +3,10 @@
  * comminicates with indiserver indi_aldiroof driver on linux host.
  *
  * Firmata is a generic protocol for communicating with arduino microcontrollers. 
- * This code basically a copy of the StandardFirmata firmware that comes with the ArduinoIDE (file>examples>firmata) 
+ * This code based on a the SimpleFirmata and EchoString firmware that comes with the ArduinoIDE (file>examples>firmata) 
  * 
- * There is quite a lot of code here. 
- * Basically it is a copy of the StandardFirmata firmware with the following changes.
- * Changes made were to remove any servo, analog and sysex features. Also the digitalWriteCallback was reimplemented to handle specific logic to change the state of the roof.
+ * 3 commands are sent from the driver to this firmware, [ABORT,OPEN,CLOSE].
+ * The driver also gets the pin state of pins 8 and 9 to determine if the roof is fully open or fully closed.
  * Unlike the usual firmata scenario, the client does not have direct control over the pins.
  * 
  */
@@ -37,6 +36,10 @@ const int relayRoofOpenPin1 =  2;      // the number of the relay pin
 const int relayRoofClosePin1 =  3;      // the number of the relay pin
 const int relayRoofOpenPin2 =  4;      // the number of the relay pin
 const int relayRoofClosePin2 =  5;      // the number of the relay pin
+const int fullyOpenStopSwitchPin =  8;      
+const int fullyClosedStopSwitchPin =  9;      
+const int fullyOpenLedPin =  10;      
+const int fullyClosedLedPin =  11;      
 //Roof state constants
 const int roofClosed = 0;
 const int roofOpen = 1;
@@ -261,30 +264,6 @@ void setPinModeCallback(byte pin, int mode)
   // TODO: save status to EEPROM here, if changed
 }
 
-//void digitalWriteCallback(byte port, int value)
-//{
-//  byte pin, lastPin, mask = 1, pinWriteMask = 0;
-//
-//  if (port < TOTAL_PORTS) {
-//    // create a mask of the pins on this port that are writable.
-//    lastPin = port * 8 + 8;
-//    if (lastPin > TOTAL_PINS) lastPin = TOTAL_PINS;
-//    for (pin = port * 8; pin < lastPin; pin++) {
-//      // do not disturb non-digital pins (eg, Rx & Tx)
-//      if (IS_PIN_DIGITAL(pin)) {
-//        // only write to OUTPUT and INPUT (enables pullup)
-//        // do not touch pins in PWM, ANALOG, SERVO or other modes
-//        if (pinConfig[pin] == OUTPUT || pinConfig[pin] == INPUT) {
-//          pinWriteMask |= mask;
-//          pinState[pin] = ((byte)value & mask) ? 1 : 0;
-//        }
-//      }
-//      mask = mask << 1;
-//    }
-//    writePort(port, (byte)value, pinWriteMask);
-//  }
-//}
-
 
 void reportDigitalCallback(byte port, int value)
 {
@@ -365,6 +344,8 @@ void setup()
   pinMode(3, OUTPUT); //Relay
   pinMode(4, OUTPUT); //Relay
   pinMode(5, OUTPUT); //Relay
+  pinMode(8, OUTPUT); //Relay
+  pinMode(9, OUTPUT); //Relay
 }
 
 /*==============================================================================
@@ -469,9 +450,9 @@ void motorOff() {
 }
 
 /**
- * Switch on relays to move motor forward
+ * Switch on relays to move motor rev
  */
-void motorFwd() {
+void motorReverse() {
   motorOff();
   digitalWrite(relayRoofOpenPin1, HIGH);
   digitalWrite(relayRoofOpenPin2, HIGH);
@@ -479,9 +460,9 @@ void motorFwd() {
 }
 
 /**
- * Switch on relays to reverse motor
+ * Switch on relays to fwd motor
  */
-void motorReverse() {
+void motorFwd() {
   motorOff();
   digitalWrite(relayRoofClosePin1, HIGH);
   digitalWrite(relayRoofClosePin2, HIGH);
@@ -500,7 +481,8 @@ long roofMotorRunDuration() {
 }
 
 /**
- * LEDs are used to provide visual clues to the state of the roof controller. Really not needed but handy when stuff goes wrong.
+ * LEDs are used to provide visual clues to the state of the roof controller. 
+ * Really not necessary, but handy when stuff goes wrong.
  * Flash LEDS when moving, Switch one LED on if the corresponding stop switch is on.
  */
 void handleLEDs() {
@@ -509,26 +491,26 @@ void handleLEDs() {
        ledOnTime = millis();
        if (ledState == false ) {
         ledState = true;
-        digitalWrite(10, HIGH);
-        digitalWrite(11, HIGH);
+        digitalWrite(fullyOpenLedPin, HIGH);
+        digitalWrite(fullyClosedLedPin, HIGH);
        } else {
           ledState = false;
-          digitalWrite(10, LOW);
-          digitalWrite(11, LOW);
+          digitalWrite(fullyOpenLedPin, LOW);
+          digitalWrite(fullyClosedLedPin, LOW);
        }
     }
     
   } else {
     //Set an LED on if the corresponding fully open switch is on.
-    if(digitalRead(9)==HIGH) {
-      digitalWrite(11, HIGH);
+    if(digitalRead(fullyClosedStopSwitchPin)==HIGH) {
+      digitalWrite(fullyClosedLedPin, HIGH);
     } else {
-      digitalWrite(11, LOW);
+      digitalWrite(fullyClosedLedPin, LOW);
     }
-    if(digitalRead(8)==HIGH) {
-      digitalWrite(10, HIGH);
+    if(digitalRead(fullyOpenStopSwitchPin)==HIGH) {
+      digitalWrite(fullyOpenLedPin, HIGH);
     } else {
-      digitalWrite(10, LOW);
+      digitalWrite(fullyOpenLedPin, LOW);
     }
   }
 }
