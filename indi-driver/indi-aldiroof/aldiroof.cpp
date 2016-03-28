@@ -3,14 +3,13 @@ Aldi hoist powered observatory roof driver.
 
 Controls an arduino using firmata to switch on/off relays connected to a 550w 220v electric hoist.
 
-NOTE: Firmata does not function well over USB3. Always use a USB2 port!!! In future I'm going to scrap firmata and use an HTTP interface. Firmata sucks!
+NOTE: Firmata does not function well over USB3. Always use a USB2 port!
 
 There are several safety overrides in place to stop the motors from 'going mad'.
 1) Electro-Mechanical: This is the primary safety cut out. The hoist has 2 microswitches which are normally used to stop the hoist when the load is fully lifted or cable is fully extended.
        These microswitches are attached (via bicycle brake cables) to mechanical-levers on the roof that get actuated when fully open/closed.
        These will cut power to the hoist when fully open/closed
 2) INDI driver: 2 additional microswitches are used as digital inputs to the arduino. These are attached to the same mechanical-levers in 1 above. These digital inputs are used as the FullyClosedLimitSwitch and FullyOpenLimitSwitch in the code below. The indi driver (this code) will send a signal to the arduino to stop the motors once the fully open/close switch is activated
-    (this is essentially made redundant by 1 above)
 
 Sept 2015 Derek OKeeffe
 *******************************************************************************/
@@ -26,7 +25,6 @@ Sept 2015 Derek OKeeffe
 
 #include <indicom.h>
 
-// We declare an auto pointer to AldiRoof.
 std::auto_ptr<AldiRoof> rollOff(0);
 
 #define MAX_ROLLOFF_DURATION    17      // This is the max ontime for the motors. Safety cut out. Although a lot of damage can be done on this time!! 
@@ -100,7 +98,7 @@ AldiRoof::AldiRoof()
 * ***********************************************************************************/
 bool AldiRoof::initProperties()
 {
-    DEBUG(INDI::Logger::DBG_SESSION, "Init props");
+    DEBUG(INDI::Logger::DBG_DEBUG, "Init props");
     INDI::Dome::initProperties();
     SetParkDataType(PARK_NONE);
     addAuxControls();
@@ -109,16 +107,16 @@ bool AldiRoof::initProperties()
 
 bool AldiRoof::SetupParms()
 {
-    DEBUG(INDI::Logger::DBG_SESSION, "Setting up params");
+    DEBUG(INDI::Logger::DBG_DEBUG, "Setting up params");
     fullOpenLimitSwitch   = ISS_OFF;
     fullClosedLimitSwitch = ISS_OFF;
     if (getFullOpenedLimitSwitch()) {
-        DEBUG(INDI::Logger::DBG_SESSION, "Setting open flag on");
+        DEBUG(INDI::Logger::DBG_DEBUG, "Setting open flag on NOT PARKED");
         fullOpenLimitSwitch = ISS_ON;
         setDomeState(DOME_IDLE);
     }
     if (getFullClosedLimitSwitch()) {
-        DEBUG(INDI::Logger::DBG_SESSION, "Setting closed flag on");
+        DEBUG(INDI::Logger::DBG_DEBUG, "Setting closed flag on PARKED");
         fullClosedLimitSwitch = ISS_ON;
         setDomeState(DOME_PARKED);
     }
@@ -127,40 +125,19 @@ bool AldiRoof::SetupParms()
 }
 
 
-/**
-* Connect to the arduino. Will iterate over all /dev/ttyACM* from 0-20 to find one with matching firmata name.
-* After finding and init of the Firmata object just return true.
-* CAUTION: If you have another non firmata device at /dev/ttyACM? then this may cause it to misbehave.
-**/
 bool AldiRoof::Connect()
 {
-    for( int a = 0; a < 20; a = a + 1 )
-    {
-    	string usbPort = "/dev/ttyACM" +  std::to_string(a);
-    	DEBUG(INDI::Logger::DBG_SESSION, "Attempting connection");
-        sf = new Firmata(usbPort.c_str());
-        if (sf->portOpen && strstr(sf->firmata_name, "SimpleDigitalFirmataRoofController")) {
-    	    DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD CONNECTED.");
-	        DEBUGF(INDI::Logger::DBG_SESSION, "FIRMATA VERSION:%s",sf->firmata_name);
-                sf->systemReset();
-	        sf->setPinMode(8,FIRMATA_MODE_INPUT);
-                sf->setPinMode(9,FIRMATA_MODE_INPUT);
-                sf->setPinMode(2,FIRMATA_MODE_OUTPUT);
-                sf->setPinMode(3,FIRMATA_MODE_OUTPUT);
-                sf->setPinMode(4,FIRMATA_MODE_OUTPUT);
-                sf->setPinMode(5,FIRMATA_MODE_OUTPUT);
-                sf->setPinMode(10,FIRMATA_MODE_OUTPUT);
-                sf->setPinMode(11,FIRMATA_MODE_OUTPUT);
-                
-	        sf->reportDigitalPorts(1);
-	        return true;
-        } else {
-            DEBUG(INDI::Logger::DBG_SESSION,"Failed, trying next port.\n");
-        }
+    DEBUGF(INDI::Logger::DBG_DEBUG, "Attempting connection %s",PortT[0].text);
+    sf = new Firmata(PortT[0].text);
+    if (sf->portOpen && strstr(sf->firmata_name, "SimpleDigitalFirmataRoofController")) {
+        DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD CONNECTED.");
+        DEBUGF(INDI::Logger::DBG_DEBUG, "FIRMATA VERSION:%s",sf->firmata_name);
+        return true;
+    } else {
+        DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD FAIL TO CONNECT");
+        delete sf;
+        return false;
     }
-    DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD FAIL TO CONNECT");
-    delete sf;
-    return false;
 }
 
 AldiRoof::~AldiRoof()
@@ -170,7 +147,7 @@ AldiRoof::~AldiRoof()
 
 const char * AldiRoof::getDefaultName()
 {
-        return (char *)"Aldi roof";
+        return (char *)"Aldi Roof";
 }
 
 bool AldiRoof::updateProperties()
@@ -204,7 +181,7 @@ bool AldiRoof::Disconnect()
 void AldiRoof::TimerHit()
 {
 
-    DEBUG(INDI::Logger::DBG_SESSION, "Timer hit");
+    DEBUG(INDI::Logger::DBG_DEBUG, "Timer hit");
     if(isConnected() == false) return;  //  No need to reset timer if we are not connected anymore    
 
    if (DomeMotionSP.s == IPS_BUSY)
@@ -214,7 +191,7 @@ void AldiRoof::TimerHit()
        {
            DEBUG(INDI::Logger::DBG_SESSION, "Roof motion is stopped.");
            setDomeState(DOME_IDLE);
-           SetTimer(1000);
+           SetTimer(500);
            return;
        }
 
@@ -225,12 +202,14 @@ void AldiRoof::TimerHit()
            {
                DEBUG(INDI::Logger::DBG_SESSION, "Roof is open.");
                setDomeState(DOME_IDLE);
+               DEBUG(INDI::Logger::DBG_SESSION, "Sending ABORT to stop motion");
+               sf->sendStringData((char *)"ABORT");
                //SetParked(false); 
                //calling setParked(false) here caauses the driver to crash with nothing logged (looks like possibly an issue writing parking data). Therefore the next 4 lines are doing what is done in indidome.cpp' function. We dont care about parking data anyway as we get the parked state directly from the roof stop-switches.
                IUResetSwitch(&ParkSP);
                ParkS[1].s = ISS_ON;
                ParkSP.s = IPS_OK;
-               IDSetSwitch(&ParkSP, NULL);
+               //IDSetSwitch(&ParkSP, NULL);
                return;
            }
            if (CalcTimeLeft(MotionStart) <= 0) {
@@ -243,17 +222,19 @@ void AldiRoof::TimerHit()
        {
            if (getFullClosedLimitSwitch())
            {
-               DEBUG(INDI::Logger::DBG_SESSION, "Roof is closed.");
-               setDomeState(DOME_PARKED);
-               //SetParked(true);
-               return;
+                DEBUG(INDI::Logger::DBG_SESSION, "Sending ABORT to stop motion");
+                sf->sendStringData((char *)"ABORT");
+                DEBUG(INDI::Logger::DBG_SESSION, "Roof is closed.");
+                setDomeState(DOME_PARKED);
+                //SetParked(true);
+                return;
            }
            if (CalcTimeLeft(MotionStart) <= 0) {
                DEBUG(INDI::Logger::DBG_SESSION, "Exceeded max motor run duration. Aborting.");
                Abort();
            }
        }
-       SetTimer(1000);
+       SetTimer(500);
    }
 }
 
@@ -295,7 +276,7 @@ IPState AldiRoof::Move(DomeDirection dir, DomeMotionCommand operation)
 
         MotionRequest = MAX_ROLLOFF_DURATION;
         gettimeofday(&MotionStart,NULL);
-        SetTimer(1000);
+        SetTimer(500);
         return IPS_BUSY;
     }
     else
@@ -339,7 +320,7 @@ IPState AldiRoof::UnPark()
 }
 
 /**
- * Abort motion. The arduino will take a request to set pin 4 on to mean switch off all relays
+ * Abort motion.
  **/
 bool AldiRoof::Abort()
 {
@@ -376,14 +357,11 @@ float AldiRoof::CalcTimeLeft(timeval start)
  **/
 bool AldiRoof::getFullOpenedLimitSwitch()
 {    
-    DEBUG(INDI::Logger::DBG_SESSION, "Checking pin 8 state");
-    sf->askPinState(8);
+    DEBUG(INDI::Logger::DBG_SESSION, "Sending QUERY command to determine roof state");
+    sf->sendStringData((char*)"QUERY");
     sf->OnIdle();
-    DEBUGF(INDI::Logger::DBG_SESSION, "Fully open switch value=%d",sf->pin_info[8].value);
-    if (sf->pin_info[8].value == 1) {
-        DEBUG(INDI::Logger::DBG_SESSION, "Fully open switch ON");
-        DEBUG(INDI::Logger::DBG_SESSION, "Sending command ABORT");
-        sf->sendStringData((char *)"ABORT");
+    DEBUGF(INDI::Logger::DBG_SESSION, "QUERY resp=%s",sf->string_buffer);
+    if (strcmp(sf->string_buffer,"OPEN")==0) { 
         fullOpenLimitSwitch = ISS_ON;
         return true;
     } else {
@@ -397,14 +375,11 @@ bool AldiRoof::getFullOpenedLimitSwitch()
  **/
 bool AldiRoof::getFullClosedLimitSwitch()
 {
-    DEBUG(INDI::Logger::DBG_SESSION, "Checking pin 9 state");
-    sf->askPinState(9);
+    DEBUG(INDI::Logger::DBG_SESSION, "Sending QUERY command to determine roof state");
+    sf->sendStringData((char*)"QUERY");
     sf->OnIdle();
-    DEBUGF(INDI::Logger::DBG_SESSION, "Fully Closed switch value =%d",sf->pin_info[9].value);
-    if (sf->pin_info[9].value == 1) {        
-        DEBUG(INDI::Logger::DBG_SESSION, "Fully Closed switch ON");
-        DEBUG(INDI::Logger::DBG_SESSION, "Sending command ABORT");
-        sf->sendStringData((char *)"ABORT");
+    DEBUGF(INDI::Logger::DBG_SESSION, "QUERY resp=%s",sf->string_buffer);
+    if (strcmp(sf->string_buffer,"CLOSED")==0) { 
         fullClosedLimitSwitch = ISS_ON;
         return true;
     } else {

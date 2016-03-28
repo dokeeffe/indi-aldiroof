@@ -1,6 +1,6 @@
 <devGroup group="Domes">
         <device label="Aldi Roof">
-                <driver name="MaxDome II">indi_aldiroof</driver>
+                <driver name="Aldi Roof">indi_aldiroof</driver>
                 <version>1.0</version>
         </device>
 </devGroup>
