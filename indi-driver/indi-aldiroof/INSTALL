@@ -1,5 +1,1 @@
-Create a dir called build at the same level as indi-aldiroof
-cd build
-cmake -DCMAKE_INSTALL_PREFIX=/usr ../indi-aldiroof/
-sudo make install
-
+Run the build.sh script in the parent dir
