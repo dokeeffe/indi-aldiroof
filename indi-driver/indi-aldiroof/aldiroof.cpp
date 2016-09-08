@@ -127,17 +127,22 @@ bool AldiRoof::SetupParms()
 
 bool AldiRoof::Connect()
 {
-    DEBUGF(INDI::Logger::DBG_DEBUG, "Attempting connection %s",PortT[0].text);
-    sf = new Firmata(PortT[0].text);
-    if (sf->portOpen && strstr(sf->firmata_name, "SimpleDigitalFirmataRoofController")) {
-        DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD CONNECTED.");
-        DEBUGF(INDI::Logger::DBG_DEBUG, "FIRMATA VERSION:%s",sf->firmata_name);
-        return true;
-    } else {
-        DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD FAIL TO CONNECT");
-        delete sf;
-        return false;
+    for( int a = 0; a < 5; a = a + 1 )
+    {
+    	string usbPort = "/dev/ttyACM" +  std::to_string(a);
+    	DEBUGF(INDI::Logger::DBG_SESSION, "Attempting connection %s",usbPort.c_str());
+        sf = new Firmata(usbPort.c_str());
+        if (sf->portOpen && strstr(sf->firmata_name, "SimpleDigitalFirmataRoofController")) {
+    	    DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD CONNECTED.");
+	    DEBUGF(INDI::Logger::DBG_SESSION, "FIRMATA VERSION:%s",sf->firmata_name);
+	    return true;
+        } else {
+            DEBUG(INDI::Logger::DBG_SESSION,"Failed, trying next port.\n");
+        }
     }
+    DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD FAIL TO CONNECT");
+    delete sf;
+    return false;
 }
 
 AldiRoof::~AldiRoof()
