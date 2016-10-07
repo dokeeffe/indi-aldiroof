@@ -25,7 +25,7 @@ Sept 2015 Derek OKeeffe
 
 #include <indicom.h>
 
-std::auto_ptr<AldiRoof> rollOff(0);
+std::unique_ptr<AldiRoof> rollOff(new AldiRoof());
 
 #define MAX_ROLLOFF_DURATION    17      // This is the max ontime for the motors. Safety cut out. Although a lot of damage can be done on this time!! 
 
@@ -90,20 +90,59 @@ AldiRoof::AldiRoof()
   fullOpenLimitSwitch   = ISS_OFF;
   fullClosedLimitSwitch = ISS_OFF;
   MotionRequest=0;
+  IsTelescopeParked=false;
   SetDomeCapability(DOME_CAN_ABORT | DOME_CAN_PARK);
 }
 
-/************************************************************************************
- *
-* ***********************************************************************************/
+/**
+ * Init all properties
+ */
 bool AldiRoof::initProperties()
 {
     DEBUG(INDI::Logger::DBG_DEBUG, "Init props");
     INDI::Dome::initProperties();
     SetParkDataType(PARK_NONE);
     addAuxControls();
+    IDSnoopDevice(ActiveDeviceT[0].text,"TELESCOPE_PARK");
+    IUFillSwitch(&ParkableWhenScopeUnparkedS[0], "Enable", "", ISS_OFF);
+    IUFillSwitch(&ParkableWhenScopeUnparkedS[1], "Disable", "", ISS_ON);
+    IUFillSwitchVector(&ParkableWhenScopeUnparkedSP, ParkableWhenScopeUnparkedS, 2, getDeviceName(), "DOME_PARKABLEWHENSCOPEUNPARKED", "Scope park aware", OPTIONS_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+
     return true;
 }
+
+/**
+ * Snoop on the telescope's park state then delegate to the base indi dome
+ * 
+ */
+bool AldiRoof::ISSnoopDevice (XMLEle *root)
+{
+	XMLEle *ep=NULL;
+    const char *propName = findXMLAttValu(root, "name");
+    if (!strcmp("TELESCOPE_PARK", propName))
+    {
+	for (ep = nextXMLEle(root, 1) ; ep != NULL ; ep = nextXMLEle(root, 0))
+        {
+            const char *elemName = findXMLAttValu(ep, "name");
+            if (!strcmp(elemName, "PARK"))
+            {
+                if (!strcmp(pcdataXMLEle(ep), "On"))
+                {
+                    DEBUG(INDI::Logger::DBG_DEBUG, "snooped park state PARKED");
+					IsTelescopeParked = true;
+                }
+                else
+                {
+                    DEBUG(INDI::Logger::DBG_DEBUG, "snooped park state UNPARKED");
+					IsTelescopeParked = false;
+                }
+            }
+        }
+        return true;
+    }
+	return INDI::Dome::ISSnoopDevice(root);
+}
+
 
 bool AldiRoof::SetupParms()
 {
@@ -150,6 +189,33 @@ const char * AldiRoof::getDefaultName()
         return (char *)"Aldi Roof";
 }
 
+/**
+ * Handle the custom switch in the options tab for telescope park awareness
+ */
+bool AldiRoof::ISNewSwitch (const char *dev, const char *name, ISState *states, char *names[], int n)
+{
+    if(strcmp(dev,getDeviceName())==0)
+    {
+		if (!strcmp(name, ParkableWhenScopeUnparkedSP.name))
+        {
+            IUUpdateSwitch(&ParkableWhenScopeUnparkedSP, states, names, n);
+
+            ParkableWhenScopeUnparkedSP.s = IPS_OK;
+
+            if (ParkableWhenScopeUnparkedS[0].s == ISS_ON)
+                DEBUG(INDI::Logger::DBG_WARNING, "Warning: Roof is parkable when telescope state is unparked or unknown. Only enable this option is parking the dome at any time will not cause damange to any equipment.");
+            else
+                DEBUG(INDI::Logger::DBG_SESSION, "Scope park aware is disabled. Roof can close when scope unparked or unknown");
+
+            IDSetSwitch(&ParkableWhenScopeUnparkedSP, NULL);
+
+            return true;
+        }
+	}
+	return INDI::Dome::ISNewSwitch(dev, name, states, names, n);
+}
+
+
 bool AldiRoof::updateProperties()
 {
     DEBUG(INDI::Logger::DBG_SESSION, "Updating props");
@@ -158,7 +224,11 @@ bool AldiRoof::updateProperties()
     if (isConnected())
     {
         SetupParms();
-    }
+        defineSwitch(&ParkableWhenScopeUnparkedSP);
+    } else 
+    {
+		deleteProperty(ParkableWhenScopeUnparkedSP.name);
+	}
 
     return true;
 }
@@ -173,6 +243,14 @@ bool AldiRoof::Disconnect()
     DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD DISCONNECTED.");
     IDSetSwitch (getSwitch("CONNECTION"),"DISCONNECTED\n");
     return true;
+}
+
+/**
+ * Returns true if the snooped property for telescope park state is true
+ */ 
+bool AldiRoof::isTelescopeParked()
+{
+  return IsTelescopeParked;
 }
 
 /**
@@ -238,6 +316,12 @@ void AldiRoof::TimerHit()
    }
 }
 
+bool AldiRoof::saveConfigItems(FILE *fp)
+{
+    IUSaveConfigSwitch(fp, &ParkableWhenScopeUnparkedSP);
+    return INDI::Dome::saveConfigItems(fp);
+}
+
 /**
  * Move the roof. Send the command string over frimata to the arduino.
  * 
@@ -261,6 +345,11 @@ IPState AldiRoof::Move(DomeDirection dir, DomeMotionCommand operation)
         else if (dir == DOME_CCW && fullClosedLimitSwitch == ISS_ON)
         {
             DEBUG(INDI::Logger::DBG_WARNING, "Roof is already fully closed.");
+            return IPS_ALERT;
+        }
+        else if (dir == DOME_CCW && isTelescopeParked() == false && ParkableWhenScopeUnparkedS[0].s == ISS_ON)
+        {
+            DEBUG(INDI::Logger::DBG_WARNING, "Cannot close roof until the telescope is parked. Please park the scope or disable Scope park aware in the options");
             return IPS_ALERT;
         }
         else if (dir == DOME_CW)
@@ -294,8 +383,8 @@ IPState AldiRoof::Move(DomeDirection dir, DomeMotionCommand operation)
  **/
 IPState AldiRoof::Park()
 {    
-    bool rc = INDI::Dome::Move(DOME_CCW, MOTION_START);
-    if (rc)
+    IPState rc = INDI::Dome::Move(DOME_CCW, MOTION_START);
+    if (!rc==IPS_ALERT)
     {
         DEBUG(INDI::Logger::DBG_SESSION, "Roll off is parking...");
         return IPS_BUSY;
@@ -309,8 +398,8 @@ IPState AldiRoof::Park()
  **/
 IPState AldiRoof::UnPark()
 {
-    bool rc = INDI::Dome::Move(DOME_CW, MOTION_START);
-    if (rc)
+    IPState rc = INDI::Dome::Move(DOME_CW, MOTION_START);
+    if (!rc==IPS_ALERT)
     {       
            DEBUG(INDI::Logger::DBG_SESSION, "Roll off is unparking...");
            return IPS_BUSY;

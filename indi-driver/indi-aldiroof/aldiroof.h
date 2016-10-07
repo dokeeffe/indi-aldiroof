@@ -21,11 +21,15 @@ class AldiRoof : public INDI::Dome
         virtual bool initProperties();
         const char *getDefaultName();
         bool updateProperties();
+        virtual bool ISSnoopDevice (XMLEle *root);
+		virtual bool ISNewSwitch (const char *dev, const char *name, ISState *states, char *names[], int n);
+		virtual bool saveConfigItems(FILE *fp);
 
       protected:
 
         bool Connect();
         bool Disconnect();
+        bool isTelescopeParked();
 
         void TimerHit();
 
@@ -36,11 +40,15 @@ class AldiRoof : public INDI::Dome
 
         virtual bool getFullOpenedLimitSwitch();
         virtual bool getFullClosedLimitSwitch();
+        
+        ISwitch ParkableWhenScopeUnparkedS[2];
+        ISwitchVectorProperty ParkableWhenScopeUnparkedSP;
 
     private:
 
         ISState fullOpenLimitSwitch;
         ISState fullClosedLimitSwitch;
+        bool IsTelescopeParked;
 
         double MotionRequest;
         struct timeval MotionStart;
