@@ -167,11 +167,20 @@ bool AldiRoof::SetupParms()
 bool AldiRoof::Connect()
 {
     DEBUGF(INDI::Logger::DBG_DEBUG, "Attempting connection %s",PortT[0].text);
+    if(!strcmp(PortT[0].text, "*")) {
+		DEBUG(INDI::Logger::DBG_SESSION, "Wildcard specified. Checking all ttyACM* devices for roof");
+	}
     sf = new Firmata(PortT[0].text);
-    if (sf->portOpen && strstr(sf->firmata_name, "SimpleDigitalFirmataRoofController")) {
-        DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD CONNECTED.");
-        DEBUGF(INDI::Logger::DBG_DEBUG, "FIRMATA VERSION:%s",sf->firmata_name);
-        return true;
+    if (sf->portOpen) {
+		if (strstr(sf->firmata_name, "SimpleDigitalFirmataRoofController")) {
+			DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD CONNECTED.");
+			DEBUGF(INDI::Logger::DBG_DEBUG, "FIRMATA VERSION:%s",sf->firmata_name);
+			return true;
+		} else {
+		    DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD INCOMPATABLE FIRMWARE.");
+			DEBUGF(INDI::Logger::DBG_DEBUG, "FIRMATA VERSION:%s",sf->firmata_name);
+			return false;
+		}
     } else {
         DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD FAIL TO CONNECT");
         delete sf;
