@@ -19,7 +19,10 @@ The indi driver comminicates with the arduino using the frimata protocol.
 1. Flash the firmware to your arduino using the arduino ide.
 2. Build and install the driver on the machine running indi server.
 
-# Wiring Hardware
+# Wiring relays to the hoist switch
+
+Relays were wired into the hoist's hand controller switch to allow both manual operation via the switch and operation from the arduino.
+WARNING: Never operate the switch using both the relays and manual switch at the same time as it may result in a 220v short circuit.
 
 The photo below shows the hoist's hand controller switch with 6 numbered pins. The centre 2 pins (3 and 4) provide supply to either 1 and 2 or 5 and 6 depending on what way the sitch is pressed.
 4 relays were wired into this switch to override it.
