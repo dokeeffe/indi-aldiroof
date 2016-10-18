@@ -24,12 +24,12 @@ The indi driver comminicates with the arduino using the frimata protocol.
 The photo below shows the hoist's hand controller switch with 6 numbered pins. The centre 2 pins (3 and 4) provide supply to either 1 and 2 or 5 and 6 depending on what way the sitch is pressed.
 4 relays were wired into this switch to override it.
 
-![Arduino and relays](https://pbs.twimg.com/media/CQlkj6qUsAElgoM.jpg:large)
+![Arduino and relays](https://raw.githubusercontent.com/dokeeffe/indi-aldiroof/master/docs/hand-control.jpg)
 
 The wiring diagram below shows the same switch on the right hand side. The centre shows the 4 relays and the left shows the arduino micro.
 The 2 limit switches are also shown attached to pins 8 and 9. See the arduino firmware sketch code for more details.
 
-![Arduino and relays](https://pbs.twimg.com/media/CQlkj6qUsAElgoM.jpg:large)
+![Arduino and relays](https://raw.githubusercontent.com/dokeeffe/indi-aldiroof/master/docs/wiring-diagram.jpg)
 
 The photo below shows the finished enclosure containing the arduino and 4 relays.
 
