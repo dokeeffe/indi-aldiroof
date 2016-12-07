@@ -291,6 +291,7 @@ void AldiRoof::TimerHit()
            char status[32];
            strcpy(status, stateString.c_str());
            IUSaveText(&CurrentStateT[0], status);
+           IDSetText(&CurrentStateTP, NULL);
 	       SetTimer(500);
            return;
        }
@@ -311,6 +312,11 @@ void AldiRoof::TimerHit()
                ParkS[1].s = ISS_ON;
                ParkSP.s = IPS_OK;
                //IDSetSwitch(&ParkSP, NULL);
+               string stateString = "OPEN";
+               char status[32];
+               strcpy(status, stateString.c_str());
+               IUSaveText(&CurrentStateT[0], status);
+               IDSetText(&CurrentStateTP, NULL);
                return;
            }
            if (CalcTimeLeft(MotionStart) <= 0) {
@@ -328,6 +334,11 @@ void AldiRoof::TimerHit()
                 DEBUG(INDI::Logger::DBG_SESSION, "Roof is closed.");
                 setDomeState(DOME_PARKED);
                 //SetParked(true);
+                string stateString = "CLOSED";
+                char status[32];
+                strcpy(status, stateString.c_str());
+                IUSaveText(&CurrentStateT[0], status);
+                IDSetText(&CurrentStateTP, NULL);
                 return;
            }
            if (CalcTimeLeft(MotionStart) <= 0) {
