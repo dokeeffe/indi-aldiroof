@@ -13,7 +13,6 @@
 
 class AldiRoof : public INDI::Dome
 {
-
     public:
         AldiRoof();
         virtual ~AldiRoof();

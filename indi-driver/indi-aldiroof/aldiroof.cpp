@@ -107,8 +107,8 @@ bool AldiRoof::initProperties()
     IUFillSwitch(&ParkableWhenScopeUnparkedS[0], "Enable", "", ISS_OFF);
     IUFillSwitch(&ParkableWhenScopeUnparkedS[1], "Disable", "", ISS_ON);
     IUFillSwitchVector(&ParkableWhenScopeUnparkedSP, ParkableWhenScopeUnparkedS, 2, getDeviceName(), "DOME_PARKABLEWHENSCOPEUNPARKED", "Scope park aware", OPTIONS_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
-    IUFillText(&CurrentStateT[0],"State","Roof State","UNKNOWN");
-    IUFillTextVector(&CurrentStateTP,CurrentStateT,2,getDeviceName(),"STATE","ROOF_STATE",MAIN_CONTROL_TAB,IP_RO,60,IPS_IDLE);
+    IUFillText(&CurrentStateT[0],"State","Roof State",NULL);
+    IUFillTextVector(&CurrentStateTP,CurrentStateT,1,getDeviceName(),"STATE","ROOF_STATE",MAIN_CONTROL_TAB,IP_RO,60,IPS_IDLE);
     return true;
 }
 
@@ -154,11 +154,14 @@ bool AldiRoof::SetupParms()
         DEBUG(INDI::Logger::DBG_DEBUG, "Setting open flag on NOT PARKED");
         fullOpenLimitSwitch = ISS_ON;
         setDomeState(DOME_IDLE);
+        IDSetText(&CurrentStateTP, "OPEN");
+
     }
     if (getFullClosedLimitSwitch()) {
         DEBUG(INDI::Logger::DBG_DEBUG, "Setting closed flag on PARKED");
         fullClosedLimitSwitch = ISS_ON;
         setDomeState(DOME_PARKED);
+        IDSetText(&CurrentStateTP, "CLOSED");
     }
     
     return true;
