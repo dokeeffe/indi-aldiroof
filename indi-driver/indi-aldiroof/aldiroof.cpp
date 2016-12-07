@@ -166,6 +166,7 @@ bool AldiRoof::SetupParms()
     char status[32];
     strcpy(status, roofStateString.c_str());
     IUSaveText(&CurrentStateT[0], status);
+    IDSetText(&CurrentStateTP, NULL);
     return true;
 }
 
@@ -337,7 +338,6 @@ void AldiRoof::TimerHit()
            }
        }
        SetTimer(500);
-       updateProperties();
    }
 }
 
