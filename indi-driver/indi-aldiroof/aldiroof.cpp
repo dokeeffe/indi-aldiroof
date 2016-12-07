@@ -107,7 +107,8 @@ bool AldiRoof::initProperties()
     IUFillSwitch(&ParkableWhenScopeUnparkedS[0], "Enable", "", ISS_OFF);
     IUFillSwitch(&ParkableWhenScopeUnparkedS[1], "Disable", "", ISS_ON);
     IUFillSwitchVector(&ParkableWhenScopeUnparkedSP, ParkableWhenScopeUnparkedS, 2, getDeviceName(), "DOME_PARKABLEWHENSCOPEUNPARKED", "Scope park aware", OPTIONS_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
-
+    IUFillText(&CurrentStateT[0],"State","Roof State","UNKNOWN");
+    IUFillTextVector(&CurrentStateTP,CurrentStateT,2,getDeviceName(),"STATE","ROOF_STATE",MAIN_CONTROL_TAB,IP_RO,60,IPS_IDLE);
     return true;
 }
 
@@ -234,9 +235,11 @@ bool AldiRoof::updateProperties()
     {
         SetupParms();
         defineSwitch(&ParkableWhenScopeUnparkedSP);
+        defineText(&CurrentStateTP);
     } else 
     {
 		deleteProperty(ParkableWhenScopeUnparkedSP.name);
+		deleteProperty(CurrentStateTP.name);
 	}
 
     return true;
@@ -278,6 +281,7 @@ void AldiRoof::TimerHit()
        {
            DEBUG(INDI::Logger::DBG_SESSION, "Roof motion is stopped.");
            setDomeState(DOME_IDLE);
+           IDSetText(&CurrentStateTP, "ABORTED");
            SetTimer(500);
            return;
        }
@@ -285,9 +289,11 @@ void AldiRoof::TimerHit()
        // Roll off is opening
        if (DomeMotionS[DOME_CW].s == ISS_ON)
        {
+           IDSetText(&CurrentStateTP, "OPENING");
            if (getFullOpenedLimitSwitch())
            {
                DEBUG(INDI::Logger::DBG_SESSION, "Roof is open.");
+               IDSetText(&CurrentStateTP, "OPEN");
                setDomeState(DOME_IDLE);
                DEBUG(INDI::Logger::DBG_SESSION, "Sending ABORT to stop motion");
                sf->sendStringData((char *)"ABORT");
@@ -307,17 +313,20 @@ void AldiRoof::TimerHit()
        // Roll Off is closing
        else if (DomeMotionS[DOME_CCW].s == ISS_ON)
        {
+           IDSetText(&CurrentStateTP, "CLOSING");
            if (getFullClosedLimitSwitch())
            {
                 DEBUG(INDI::Logger::DBG_SESSION, "Sending ABORT to stop motion");
                 sf->sendStringData((char *)"ABORT");
                 DEBUG(INDI::Logger::DBG_SESSION, "Roof is closed.");
+                IDSetText(&CurrentStateTP, "CLOSED");
                 setDomeState(DOME_PARKED);
                 //SetParked(true);
                 return;
            }
            if (CalcTimeLeft(MotionStart) <= 0) {
                DEBUG(INDI::Logger::DBG_SESSION, "Exceeded max motor run duration. Aborting.");
+               IDSetText(&CurrentStateTP, "OVERRUN");
                Abort();
            }
        }

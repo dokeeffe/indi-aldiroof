@@ -46,6 +46,9 @@ class AldiRoof : public INDI::Dome
 
     private:
 
+        IText CurrentStateT[1];
+        ITextVectorProperty CurrentStateTP;
+
         ISState fullOpenLimitSwitch;
         ISState fullClosedLimitSwitch;
         bool IsTelescopeParked;
