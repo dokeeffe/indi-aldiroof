@@ -155,13 +155,13 @@ bool AldiRoof::SetupParms()
         DEBUG(INDI::Logger::DBG_DEBUG, "Setting open flag on NOT PARKED");
         fullOpenLimitSwitch = ISS_ON;
         setDomeState(DOME_IDLE);
-        string roofStateString = "OPEN";
+        roofStateString = "OPEN";
     }
     if (getFullClosedLimitSwitch()) {
         DEBUG(INDI::Logger::DBG_DEBUG, "Setting closed flag on PARKED");
         fullClosedLimitSwitch = ISS_ON;
         setDomeState(DOME_PARKED);
-        string roofStateString = "CLOSED";
+        roofStateString = "CLOSED";
     }
     char status[32];
     strcpy(status, roofStateString.c_str());
@@ -302,7 +302,6 @@ void AldiRoof::TimerHit()
            if (getFullOpenedLimitSwitch())
            {
                DEBUG(INDI::Logger::DBG_SESSION, "Roof is open.");
-               IDSetText(&CurrentStateTP, "OPEN");
                setDomeState(DOME_IDLE);
                DEBUG(INDI::Logger::DBG_SESSION, "Sending ABORT to stop motion");
                sf->sendStringData((char *)"ABORT");
@@ -322,7 +321,6 @@ void AldiRoof::TimerHit()
        // Roll Off is closing
        else if (DomeMotionS[DOME_CCW].s == ISS_ON)
        {
-           IDSetText(&CurrentStateTP, "CLOSING");
            if (getFullClosedLimitSwitch())
            {
                 DEBUG(INDI::Logger::DBG_SESSION, "Sending ABORT to stop motion");
