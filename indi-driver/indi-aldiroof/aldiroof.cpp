@@ -150,26 +150,22 @@ bool AldiRoof::SetupParms()
     DEBUG(INDI::Logger::DBG_DEBUG, "Setting up params");
     fullOpenLimitSwitch   = ISS_OFF;
     fullClosedLimitSwitch = ISS_OFF;
+    string roofStateString = "UNKNOWN";
     if (getFullOpenedLimitSwitch()) {
         DEBUG(INDI::Logger::DBG_DEBUG, "Setting open flag on NOT PARKED");
         fullOpenLimitSwitch = ISS_ON;
         setDomeState(DOME_IDLE);
-	string stateString = "OPEN";
-	char status[32];
-	strcpy(status, stateString.c_str());
-	IUSaveText(&CurrentStateT[0], status);
-
+        string roofStateString = "OPEN";
     }
     if (getFullClosedLimitSwitch()) {
         DEBUG(INDI::Logger::DBG_DEBUG, "Setting closed flag on PARKED");
         fullClosedLimitSwitch = ISS_ON;
         setDomeState(DOME_PARKED);
-	string stateString = "CLOSED";
-	char status[32];
-        strcpy(status, stateString.c_str());
-        IUSaveText(&CurrentStateT[0], status);
+        string roofStateString = "CLOSED";
     }
-    
+    char status[32];
+    strcpy(status, roofStateString.c_str());
+    IUSaveText(&CurrentStateT[0], status);
     return true;
 }
 
@@ -294,7 +290,7 @@ void AldiRoof::TimerHit()
            char status[32];
            strcpy(status, stateString.c_str());
            IUSaveText(&CurrentStateT[0], status);
-	   SetTimer(500);
+	       SetTimer(500);
            return;
        }
 
@@ -314,10 +310,6 @@ void AldiRoof::TimerHit()
                IUResetSwitch(&ParkSP);
                ParkS[1].s = ISS_ON;
                ParkSP.s = IPS_OK;
-	       string stateString = "OPEN";
-               char status[32];
-               strcpy(status, stateString.c_str());
-               IUSaveText(&CurrentStateT[0], status);
                //IDSetSwitch(&ParkSP, NULL);
                return;
            }
@@ -335,24 +327,17 @@ void AldiRoof::TimerHit()
                 DEBUG(INDI::Logger::DBG_SESSION, "Sending ABORT to stop motion");
                 sf->sendStringData((char *)"ABORT");
                 DEBUG(INDI::Logger::DBG_SESSION, "Roof is closed.");
-                string stateString = "CLOSED";
-	        char status[32];
-	       	strcpy(status, stateString.c_str());
-       		IUSaveText(&CurrentStateT[0], status);
                 setDomeState(DOME_PARKED);
                 //SetParked(true);
                 return;
            }
            if (CalcTimeLeft(MotionStart) <= 0) {
                DEBUG(INDI::Logger::DBG_SESSION, "Exceeded max motor run duration. Aborting.");
-               string stateString = "OVERRUN";
-               char status[32];
-  	       strcpy(status, stateString.c_str());
-               IUSaveText(&CurrentStateT[0], status);
                Abort();
            }
        }
        SetTimer(500);
+       updateProperties();
    }
 }
 
