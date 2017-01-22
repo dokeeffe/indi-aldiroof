@@ -27,7 +27,7 @@ Sept 2015 Derek OKeeffe
 
 std::unique_ptr<AldiRoof> rollOff(new AldiRoof());
 
-#define MAX_ROLLOFF_DURATION    17      // This is the max ontime for the motors. Safety cut out. Although a lot of damage can be done on this time!! 
+#define MAX_ROLLOFF_DURATION    17      // This is the max ontime for the motors. Safety cut out. Although a lot of damage can be done on this time!!
 
 void ISPoll(void *p);
 
@@ -90,7 +90,6 @@ AldiRoof::AldiRoof()
   fullOpenLimitSwitch   = ISS_OFF;
   fullClosedLimitSwitch = ISS_OFF;
   MotionRequest=0;
-  IsTelescopeParked=false;
   SetDomeCapability(DOME_CAN_ABORT | DOME_CAN_PARK);
 }
 
@@ -103,44 +102,13 @@ bool AldiRoof::initProperties()
     INDI::Dome::initProperties();
     SetParkDataType(PARK_NONE);
     addAuxControls();
-    IDSnoopDevice(ActiveDeviceT[0].text,"TELESCOPE_PARK");
-    IUFillSwitch(&ParkableWhenScopeUnparkedS[0], "Enable", "", ISS_OFF);
-    IUFillSwitch(&ParkableWhenScopeUnparkedS[1], "Disable", "", ISS_ON);
-    IUFillSwitchVector(&ParkableWhenScopeUnparkedSP, ParkableWhenScopeUnparkedS, 2, getDeviceName(), "DOME_PARKABLEWHENSCOPEUNPARKED", "Scope park aware", OPTIONS_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
     IUFillText(&CurrentStateT[0],"State","Roof State",NULL);
     IUFillTextVector(&CurrentStateTP,CurrentStateT,1,getDeviceName(),"STATE","ROOF_STATE",MAIN_CONTROL_TAB,IP_RO,60,IPS_IDLE);
     return true;
 }
 
-/**
- * Snoop on the telescope's park state then delegate to the base indi dome
- * 
- */
 bool AldiRoof::ISSnoopDevice (XMLEle *root)
 {
-	XMLEle *ep=NULL;
-    const char *propName = findXMLAttValu(root, "name");
-    if (!strcmp("TELESCOPE_PARK", propName))
-    {
-	for (ep = nextXMLEle(root, 1) ; ep != NULL ; ep = nextXMLEle(root, 0))
-        {
-            const char *elemName = findXMLAttValu(ep, "name");
-            if (!strcmp(elemName, "PARK"))
-            {
-                if (!strcmp(pcdataXMLEle(ep), "On"))
-                {
-                    DEBUG(INDI::Logger::DBG_DEBUG, "snooped park state PARKED");
-					IsTelescopeParked = true;
-                }
-                else
-                {
-                    DEBUG(INDI::Logger::DBG_DEBUG, "snooped park state UNPARKED");
-					IsTelescopeParked = false;
-                }
-            }
-        }
-        return true;
-    }
 	return INDI::Dome::ISSnoopDevice(root);
 }
 
@@ -205,29 +173,8 @@ const char * AldiRoof::getDefaultName()
         return (char *)"Aldi Roof";
 }
 
-/**
- * Handle the custom switch in the options tab for telescope park awareness
- */
 bool AldiRoof::ISNewSwitch (const char *dev, const char *name, ISState *states, char *names[], int n)
 {
-    if(strcmp(dev,getDeviceName())==0)
-    {
-		if (!strcmp(name, ParkableWhenScopeUnparkedSP.name))
-        {
-            IUUpdateSwitch(&ParkableWhenScopeUnparkedSP, states, names, n);
-
-            ParkableWhenScopeUnparkedSP.s = IPS_OK;
-
-            if (ParkableWhenScopeUnparkedS[0].s == ISS_ON)
-                DEBUG(INDI::Logger::DBG_WARNING, "Warning: Roof is parkable when telescope state is unparked or unknown. Only enable this option is parking the dome at any time will not cause damange to any equipment.");
-            else
-                DEBUG(INDI::Logger::DBG_SESSION, "Scope park aware is disabled. Roof can close when scope unparked or unknown");
-
-            IDSetSwitch(&ParkableWhenScopeUnparkedSP, NULL);
-
-            return true;
-        }
-	}
 	return INDI::Dome::ISNewSwitch(dev, name, states, names, n);
 }
 
@@ -240,11 +187,9 @@ bool AldiRoof::updateProperties()
     if (isConnected())
     {
         SetupParms();
-        defineSwitch(&ParkableWhenScopeUnparkedSP);
         defineText(&CurrentStateTP);
-    } else 
+    } else
     {
-		deleteProperty(ParkableWhenScopeUnparkedSP.name);
 		deleteProperty(CurrentStateTP.name);
 	}
 
@@ -257,18 +202,10 @@ bool AldiRoof::updateProperties()
 bool AldiRoof::Disconnect()
 {
     sf->closePort();
-    delete sf;	
+    delete sf;
     DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD DISCONNECTED.");
     IDSetSwitch (getSwitch("CONNECTION"),"DISCONNECTED\n");
     return true;
-}
-
-/**
- * Returns true if the snooped property for telescope park state is true
- */ 
-bool AldiRoof::isTelescopeParked()
-{
-  return IsTelescopeParked;
 }
 
 /**
@@ -278,7 +215,7 @@ void AldiRoof::TimerHit()
 {
 
     DEBUG(INDI::Logger::DBG_DEBUG, "Timer hit");
-    if(isConnected() == false) return;  //  No need to reset timer if we are not connected anymore    
+    if(isConnected() == false) return;  //  No need to reset timer if we are not connected anymore
 
    if (DomeMotionSP.s == IPS_BUSY)
    {
@@ -303,10 +240,10 @@ void AldiRoof::TimerHit()
            if (getFullOpenedLimitSwitch())
            {
                DEBUG(INDI::Logger::DBG_SESSION, "Roof is open.");
-               setDomeState(DOME_IDLE);
+               setDomeState(DOME_UNPARKED);
                DEBUG(INDI::Logger::DBG_SESSION, "Sending ABORT to stop motion");
                sf->sendStringData((char *)"ABORT");
-               //SetParked(false); 
+               //SetParked(false);
                //calling setParked(false) here caauses the driver to crash with nothing logged (looks like possibly an issue writing parking data). Therefore the next 4 lines are doing what is done in indidome.cpp' function. We dont care about parking data anyway as we get the parked state directly from the roof stop-switches.
                IUResetSwitch(&ParkSP);
                ParkS[1].s = ISS_ON;
@@ -352,13 +289,12 @@ void AldiRoof::TimerHit()
 
 bool AldiRoof::saveConfigItems(FILE *fp)
 {
-    IUSaveConfigSwitch(fp, &ParkableWhenScopeUnparkedSP);
     return INDI::Dome::saveConfigItems(fp);
 }
 
 /**
  * Move the roof. Send the command string over frimata to the arduino.
- * 
+ *
  **/
 IPState AldiRoof::Move(DomeDirection dir, DomeMotionCommand operation)
 {
@@ -371,6 +307,11 @@ IPState AldiRoof::Move(DomeDirection dir, DomeMotionCommand operation)
             DEBUG(INDI::Logger::DBG_WARNING, "Roof is already fully opened.");
             return IPS_ALERT;
         }
+        else if (dir == DOME_CCW && INDI::Dome::isLocked())
+        {
+            DEBUG(INDI::Logger::DBG_WARNING, "Cannot close dome when mount is locking. See: Telescope parkng policy, in options tab");
+            return IPS_ALERT;
+        }
         else if (dir == DOME_CW && getWeatherState() == IPS_ALERT)
         {
             DEBUG(INDI::Logger::DBG_WARNING, "Weather conditions are in the danger zone. Cannot open roof.");
@@ -381,33 +322,30 @@ IPState AldiRoof::Move(DomeDirection dir, DomeMotionCommand operation)
             DEBUG(INDI::Logger::DBG_WARNING, "Roof is already fully closed.");
             return IPS_ALERT;
         }
-        else if (dir == DOME_CCW && isTelescopeParked() == false && ParkableWhenScopeUnparkedS[0].s == ISS_ON)
-        {
-            DEBUG(INDI::Logger::DBG_WARNING, "Cannot close roof until the telescope is parked. Please park the scope or disable Scope park aware in the options");
-            return IPS_ALERT;
-        }
         else if (dir == DOME_CW)
         {
             DEBUG(INDI::Logger::DBG_SESSION, "Sending command OPEN");
             sf->sendStringData((char *)"OPEN");
-        }                    
+        }
         else if (dir == DOME_CCW)
         {
             DEBUG(INDI::Logger::DBG_SESSION, "Sending command CLOSE");
             sf->sendStringData((char *)"CLOSE");
-        }                    
+        }
 
         MotionRequest = MAX_ROLLOFF_DURATION;
         gettimeofday(&MotionStart,NULL);
         SetTimer(500);
+        DEBUG(INDI::Logger::DBG_SESSION, "return IPS_BUSY");
         return IPS_BUSY;
     }
     else
     {
+        DEBUG(INDI::Logger::DBG_SESSION, "WTF WTF ");
         return (Dome::Abort() ? IPS_OK : IPS_ALERT);
 
     }
-
+    DEBUG(INDI::Logger::DBG_SESSION, "return IPS_ALERT");
     return IPS_ALERT;
 
 }
@@ -416,9 +354,9 @@ IPState AldiRoof::Move(DomeDirection dir, DomeMotionCommand operation)
  * Park the roof = close
  **/
 IPState AldiRoof::Park()
-{    
+{
     IPState rc = INDI::Dome::Move(DOME_CCW, MOTION_START);
-    if (!rc==IPS_ALERT)
+    if (rc==IPS_BUSY)
     {
         DEBUG(INDI::Logger::DBG_SESSION, "Roll off is parking...");
         return IPS_BUSY;
@@ -433,13 +371,12 @@ IPState AldiRoof::Park()
 IPState AldiRoof::UnPark()
 {
     IPState rc = INDI::Dome::Move(DOME_CW, MOTION_START);
-    if (!rc==IPS_ALERT)
-    {       
+    if (rc==IPS_BUSY) {
            DEBUG(INDI::Logger::DBG_SESSION, "Roll off is unparking...");
            return IPS_BUSY;
     }
     else
-        return IPS_ALERT;
+      return IPS_ALERT;
 }
 
 /**
@@ -451,11 +388,11 @@ bool AldiRoof::Abort()
     sf->sendStringData((char *)"ABORT");
     MotionRequest=-1;
 
-    // If both limit switches are off, then we're neither parked nor unparked.
+    // If both limit switches are off, then we're neither parked nor unparked or a hardware failure (cable / rollers / jam).
     if (getFullOpenedLimitSwitch() == false && getFullClosedLimitSwitch() == false)
     {
         IUResetSwitch(&ParkSP);
-        ParkSP.s = IPS_IDLE;
+        ParkSP.s = IPS_ALERT;
         IDSetSwitch(&ParkSP, NULL);
     }
 
@@ -479,12 +416,12 @@ float AldiRoof::CalcTimeLeft(timeval start)
  * Get the state of the full open limit switch. This function will also switch off the motors as a safety override.
  **/
 bool AldiRoof::getFullOpenedLimitSwitch()
-{    
+{
     DEBUG(INDI::Logger::DBG_SESSION, "Sending QUERY command to determine roof state");
     sf->sendStringData((char*)"QUERY");
     sf->OnIdle();
     DEBUGF(INDI::Logger::DBG_SESSION, "QUERY resp=%s",sf->string_buffer);
-    if (strcmp(sf->string_buffer,"OPEN")==0) { 
+    if (strcmp(sf->string_buffer,"OPEN")==0) {
         fullOpenLimitSwitch = ISS_ON;
         return true;
     } else {
@@ -502,7 +439,7 @@ bool AldiRoof::getFullClosedLimitSwitch()
     sf->sendStringData((char*)"QUERY");
     sf->OnIdle();
     DEBUGF(INDI::Logger::DBG_SESSION, "QUERY resp=%s",sf->string_buffer);
-    if (strcmp(sf->string_buffer,"CLOSED")==0) { 
+    if (strcmp(sf->string_buffer,"CLOSED")==0) {
         fullClosedLimitSwitch = ISS_ON;
         return true;
     } else {
@@ -510,4 +447,3 @@ bool AldiRoof::getFullClosedLimitSwitch()
         return false;
     }
 }
-

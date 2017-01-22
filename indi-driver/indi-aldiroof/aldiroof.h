@@ -34,14 +34,11 @@ class AldiRoof : public INDI::Dome
 
         virtual IPState Move(DomeDirection dir, DomeMotionCommand operation);
         virtual IPState Park();
-        virtual IPState UnPark();                
+        virtual IPState UnPark();
         virtual bool Abort();
 
         virtual bool getFullOpenedLimitSwitch();
         virtual bool getFullClosedLimitSwitch();
-        
-        ISwitch ParkableWhenScopeUnparkedS[2];
-        ISwitchVectorProperty ParkableWhenScopeUnparkedSP;
 
     private:
 
@@ -55,9 +52,9 @@ class AldiRoof : public INDI::Dome
         double MotionRequest;
         struct timeval MotionStart;
         bool SetupParms();
-        
+
         float CalcTimeLeft(timeval);
-        
+
         Firmata* sf;
 
 };
