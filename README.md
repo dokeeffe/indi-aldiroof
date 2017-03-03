@@ -1,6 +1,6 @@
 An INDI (http://indilib.org/) driver and arduino firmware to control a roll off roof of an astronomical observatory.
 
-![observatory](https://pbs.twimg.com/media/CFelQpDW0AEEALn.jpg)
+![observatory](https://raw.githubusercontent.com/dokeeffe/indi-aldiroof/master/docs/allsky-25.gif)
 
 The roof is powered by a 550W electric hoist purchased from Aldi.
 The arduino controls 4 relays connected to the hoist's hand controller which override the manual switch.
