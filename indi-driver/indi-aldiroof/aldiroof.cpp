@@ -129,7 +129,11 @@ bool AldiRoof::SetupParms()
         DEBUG(INDI::Logger::DBG_DEBUG, "Setting closed flag on PARKED");
         fullClosedLimitSwitch = ISS_ON;
         setDomeState(DOME_PARKED);
-        roofStateString = "CLOSED";
+        if(isParked()) {
+          roofStateString = "PARKED CLOSED";
+        } else {
+          roofStateString = "CLOSED";
+        }
     }
     char status[32];
     strcpy(status, roofStateString.c_str());
