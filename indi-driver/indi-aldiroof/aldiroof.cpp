@@ -145,11 +145,12 @@ bool AldiRoof::SetupParms()
 
 bool AldiRoof::Connect()
 {
-    DEBUGF(INDI::Logger::DBG_DEBUG, "Attempting connection %s",PortT[0].text);
-    if(!strcmp(PortT[0].text, "*")) {
-		DEBUG(INDI::Logger::DBG_SESSION, "Wildcard specified. Checking all ttyACM* devices for roof");
-	}
-    sf = new Firmata(PortT[0].text);
+    //DEBUGF(INDI::Logger::DBG_DEBUG, "Attempting connection %s",PortT[0].text);
+    //if(!strcmp(PortT[0].text, "*")) {
+//		DEBUG(INDI::Logger::DBG_SESSION, "Wildcard specified. Checking all ttyACM* devices for roof");
+//	}
+ //   sf = new Firmata(PortT[0].text);
+    sf = new Firmata("/dev/ttyACM0");
     if (sf->portOpen) {
 		if (strstr(sf->firmata_name, "SimpleDigitalFirmataRoofController")) {
 			DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD CONNECTED.");
