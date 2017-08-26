@@ -248,8 +248,7 @@ void AldiRoof::TimerHit()
                setDomeState(DOME_UNPARKED);
                DEBUG(INDI::Logger::DBG_SESSION, "Sending ABORT to stop motion");
                sf->sendStringData((char *)"ABORT");
-               //SetParked(false);
-               //calling setParked(false) here caauses the driver to crash with nothing logged (looks like possibly an issue writing parking data). Therefore the next 4 lines are doing what is done in indidome.cpp' function. We dont care about parking data anyway as we get the parked state directly from the roof stop-switches.
+               SetParked(false);
                IUResetSwitch(&ParkSP);
                ParkS[1].s = ISS_ON;
                ParkSP.s = IPS_OK;
@@ -275,7 +274,7 @@ void AldiRoof::TimerHit()
                 sf->sendStringData((char *)"ABORT");
                 DEBUG(INDI::Logger::DBG_SESSION, "Roof is closed.");
                 setDomeState(DOME_PARKED);
-                //SetParked(true);
+                SetParked(true);
                 string stateString = "CLOSED";
                 char status[32];
                 strcpy(status, stateString.c_str());
