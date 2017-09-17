@@ -116,6 +116,7 @@ bool AldiRoof::ISSnoopDevice (XMLEle *root)
 bool AldiRoof::SetupParms()
 {
     DEBUG(INDI::Logger::DBG_DEBUG, "Setting up params");
+    InitPark();
     fullOpenLimitSwitch   = ISS_OFF;
     fullClosedLimitSwitch = ISS_OFF;
     string roofStateString = "UNKNOWN";
