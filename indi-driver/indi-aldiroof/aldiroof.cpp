@@ -1,7 +1,7 @@
 /*******************************************************************************
 Aldi hoist powered observatory roof driver.
 
-Controls an arduino using firmata to switch on/off relays connected to a 550w 220v electric hoist.
+Controls an arduino using firmata to switch on/off relays + 2x2pole contactors connected to a 550w 220v electric hoist.
 
 NOTE: Firmata does not function well over USB3. Always use a USB2 port!
 
@@ -24,6 +24,7 @@ Sept 2015 Derek OKeeffe
 #include <memory>
 
 #include <indicom.h>
+#include "connectionplugins/connectionserial.h"
 
 std::unique_ptr<AldiRoof> rollOff(new AldiRoof());
 
@@ -146,12 +147,7 @@ bool AldiRoof::SetupParms()
 
 bool AldiRoof::Connect()
 {
-    //DEBUGF(INDI::Logger::DBG_DEBUG, "Attempting connection %s",PortT[0].text);
-    //if(!strcmp(PortT[0].text, "*")) {
-//		DEBUG(INDI::Logger::DBG_SESSION, "Wildcard specified. Checking all ttyACM* devices for roof");
-//	}
- //   sf = new Firmata(PortT[0].text);
-    sf = new Firmata("/dev/ttyACM0");
+    sf = new Firmata(serialConnection->port());
     if (sf->portOpen) {
 		if (strstr(sf->firmata_name, "SimpleDigitalFirmataRoofController")) {
 			DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD CONNECTED.");

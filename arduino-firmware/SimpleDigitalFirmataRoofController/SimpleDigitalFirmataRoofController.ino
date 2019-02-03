@@ -1,6 +1,6 @@
 /*
  * Firmware for a roll off roof. A simple state-machine based on StandardFirmata, 
- * comminicates with indiserver indi_aldiroof driver on linux host.
+ * comminicates with indiserver indi_aldiroof driver.
  *
  * Firmata is a generic protocol for communicating with arduino microcontrollers. 
  * This code based on a the SimpleFirmata and EchoString firmware that comes with the ArduinoIDE (file>examples>firmata) 
@@ -8,6 +8,17 @@
  * 4 commands are sent from the driver to this firmware, [ABORT,OPEN,CLOSE,QUERY].
  * 'QUERY' is used to determine if the roof is fully open or fully closed.
  * Unlike the usual firmata scenario, the client does not have direct control over the pins.
+ * 
+ * 
+ * Plug pins to motor controller (this is a custom plug wired beween contactors and motor to enable easy maintenance, not used in code)
+ * 1 Live Supply
+ * 2 Neutral Supply
+ * 3 Close live
+ * 4 Open live
+ * 5 Close neutral
+ * 6 Open neutral
+ * 7 NA
+ * 8 NA
  * 
  */
 #include <Wire.h>
@@ -17,10 +28,8 @@
  * ROOF SPECIFIC GLOBAL VARIABLES
  *============================================================================*/
 //pin constants
-const int relayRoofOpenPin1 =  2;      // the number of the relay pin
-const int relayRoofClosePin1 =  3;      // the number of the relay pin
-const int relayRoofOpenPin2 =  4;      // the number of the relay pin
-const int relayRoofClosePin2 =  5;      // the number of the relay pin
+const int relayRoofOpenPin =  2;      // the number of the relay pin
+const int relayRoofClosePin =  3;      // the number of the relay pin
 const int fullyOpenStopSwitchPin =  8;      
 const int fullyClosedStopSwitchPin =  9;      
 const int fullyOpenLedPin =  10;      
@@ -49,10 +58,8 @@ void setup()
   Firmata.setFirmwareVersion(FIRMATA_MAJOR_VERSION, FIRMATA_MINOR_VERSION);
   Firmata.attach(STRING_DATA, stringCallback);
   Firmata.begin(57600);
-  pinMode(relayRoofOpenPin1, OUTPUT); 
-  pinMode(relayRoofClosePin1, OUTPUT);
-  pinMode(relayRoofOpenPin2, OUTPUT); 
-  pinMode(relayRoofClosePin2, OUTPUT); 
+  pinMode(relayRoofOpenPin, OUTPUT); 
+  pinMode(relayRoofClosePin, OUTPUT);
   pinMode(fullyOpenStopSwitchPin, INPUT);
   pinMode(fullyClosedStopSwitchPin, INPUT); 
   pinMode(fullyOpenLedPin, OUTPUT); 
@@ -101,21 +108,12 @@ void handleState() {
   if (roofState != previousRoofState) {
     previousRoofState = roofState;
     if (roofState == roofOpening) {
-      if (previousRoofDirection == roofClosing) {
-        motorOff();
-        delay(500); //delay on direction change to save motor
-      }
       motorFwd();
       hoistOnTime = millis();
     } else if (roofState == roofClosing) {
-      if (previousRoofDirection == roofOpening) {
-        motorOff();
-        delay(500); //delay on direction change to save motor
-      }
       motorReverse();
       hoistOnTime = millis();
     }  else {
-      //Switch of motor
       motorOff();
     }
   }
@@ -125,10 +123,9 @@ void handleState() {
  * Switch off all motor relays
  */
 void motorOff() {
-  digitalWrite(relayRoofOpenPin1, LOW);
-  digitalWrite(relayRoofClosePin1, LOW);
-  digitalWrite(relayRoofOpenPin2, LOW);
-  digitalWrite(relayRoofClosePin2, LOW);
+  digitalWrite(relayRoofOpenPin, LOW);
+  digitalWrite(relayRoofClosePin, LOW);
+  delay(1000);
 }
 
 /**
@@ -136,8 +133,7 @@ void motorOff() {
  */
 void motorReverse() {
   motorOff();
-  digitalWrite(relayRoofOpenPin1, HIGH);
-  digitalWrite(relayRoofOpenPin2, HIGH);
+  digitalWrite(relayRoofOpenPin, HIGH);
   previousRoofDirection = roofOpening;
 }
 
@@ -146,8 +142,7 @@ void motorReverse() {
  */
 void motorFwd() {
   motorOff();
-  digitalWrite(relayRoofClosePin1, HIGH);
-  digitalWrite(relayRoofClosePin2, HIGH);
+  digitalWrite(relayRoofClosePin, HIGH);
   previousRoofDirection = roofClosing;
 }
 
