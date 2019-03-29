@@ -99,7 +99,7 @@ AldiRoof::AldiRoof()
  */
 bool AldiRoof::initProperties()
 {
-    DEBUG(INDI::Logger::DBG_DEBUG, "Init props");
+    DEBUG(INDI::Logger::DBG_SESSION, "Init props");
     INDI::Dome::initProperties();
     SetParkDataType(PARK_NONE);
     addAuxControls();
@@ -116,8 +116,8 @@ bool AldiRoof::ISSnoopDevice (XMLEle *root)
 
 bool AldiRoof::SetupParms()
 {
-    DEBUG(INDI::Logger::DBG_DEBUG, "Setting up params");
-    InitPark();
+    DEBUG(INDI::Logger::DBG_SESSION, "Setting up params");
+    //InitPark();
     fullOpenLimitSwitch   = ISS_OFF;
     fullClosedLimitSwitch = ISS_OFF;
     string roofStateString = "UNKNOWN";
@@ -128,7 +128,7 @@ bool AldiRoof::SetupParms()
         roofStateString = "OPEN";
     }
     if (getFullClosedLimitSwitch()) {
-        DEBUG(INDI::Logger::DBG_DEBUG, "Setting closed flag on PARKED");
+        DEBUG(INDI::Logger::DBG_SESSION, "Setting closed flag on PARKED");
         fullClosedLimitSwitch = ISS_ON;
         setDomeState(DOME_PARKED);
         if(isParked()) {
@@ -151,12 +151,12 @@ bool AldiRoof::Connect()
     if (sf->portOpen) {
 		if (strstr(sf->firmata_name, "SimpleDigitalFirmataRoofController")) {
 			DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD CONNECTED.");
-			DEBUGF(INDI::Logger::DBG_DEBUG, "FIRMATA VERSION:%s",sf->firmata_name);
+			DEBUGF(INDI::Logger::DBG_SESSION, "FIRMATA VERSION:%s",sf->firmata_name);
 			return true;
 		} else {
 		    DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD INCOMPATABLE FIRMWARE.");
-			DEBUGF(INDI::Logger::DBG_DEBUG, "FIRMATA VERSION:%s",sf->firmata_name);
-			return false;
+		    DEBUGF(INDI::Logger::DBG_SESSION, "FIRMATA VERSION:%s",sf->firmata_name);
+		    return false;
 		}
     } else {
         DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD FAIL TO CONNECT");
@@ -192,8 +192,8 @@ bool AldiRoof::updateProperties()
         defineText(&CurrentStateTP);
     } else
     {
-		deleteProperty(CurrentStateTP.name);
-	}
+	deleteProperty(CurrentStateTP.name);
+    }
 
     return true;
 }
