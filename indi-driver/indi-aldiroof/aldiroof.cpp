@@ -28,7 +28,7 @@ Sept 2015 Derek OKeeffe
 
 std::unique_ptr<AldiRoof> rollOff(new AldiRoof());
 
-#define MAX_ROLLOFF_DURATION    17      // This is the max ontime for the motors. Safety cut out. Although a lot of damage can be done on this time!!
+#define MAX_ROLLOFF_DURATION    19      // This is the max ontime for the motors. Safety cut out. Although a lot of damage can be done on this time!!
 
 void ISPoll(void *p);
 
