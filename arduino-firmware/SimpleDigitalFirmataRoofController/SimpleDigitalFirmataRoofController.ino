@@ -161,8 +161,10 @@ long roofMotorRunDuration() {
 
 
 void safetyCutout() {
-  if ((roofState == roofOpening && digitalRead(fullyOpenStopSwitchPin) == HIGH) || (roofState == roofClosing && digitalRead(fullyClosedStopSwitchPin) == HIGH)) {
-    roofState = roofStopped;
+  if (roofMotorRunDuration() > 1000) {
+    if ((roofState == roofOpening && digitalRead(fullyOpenStopSwitchPin) == HIGH) || (roofState == roofClosing && digitalRead(fullyClosedStopSwitchPin) == HIGH)) {
+      roofState = roofStopped;
+    }    
   }
 }
 
@@ -193,4 +195,3 @@ void toggleLed(int duration) {
     }
   }
 }
-
