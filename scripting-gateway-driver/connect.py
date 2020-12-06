@@ -7,7 +7,7 @@ import pyfirmata
 def main():
     rc = FirmataRoofController('/dev/ttyACM0')
     rc.disconnect()
-    print('PARKED')
+    print('OK')
 
 
 if __name__ == "__main__":
