@@ -12,7 +12,7 @@ CLOSED='1 0 0'
 UNKNOWN='2 0 0'
 CACHE_EXPIRY=300
 
-def retrieve_cached():
+def retrieve_cached_state():
     try:
         now = int(time.time())
         state = pickle.load( open( "/tmp/roofstate.p", "rb" ) )
@@ -49,7 +49,7 @@ def main(path):
     Queries the roof and writes a 3 digit string to the temp file passed. 3 digits represent park-state, shutter state and azimuth.
     Since this is not a rotating dome, the azimuth is hard coded to 0.
     '''
-    state = retrieve_cached()
+    state = retrieve_cached_state()
     if state==None:
         state = query_firmware()
         cache_state(state)

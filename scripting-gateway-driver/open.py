@@ -7,6 +7,10 @@ def main():
     rc = FirmataRoofController('/dev/ttyACM0')
     rc.move('OPEN', until='OPEN')
     rc.disconnect()
+    try:
+        os.remove('/tmp/roofstate.p')
+    except:
+        pass
     print('OK')
 
 

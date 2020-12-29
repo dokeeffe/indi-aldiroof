@@ -40,7 +40,7 @@ class FirmataRoofController():
         try:
             self.board.exit()
         except AttributeError:
-            print('exi	t() raised an AttributeError unexpectedly!')
+            print('exit() raised an AttributeError unexpectedly!')
 
     def abort(self):
         self.send_arduino_command('ABORT')
