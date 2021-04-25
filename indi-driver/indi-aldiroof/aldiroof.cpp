@@ -313,11 +313,11 @@ IPState AldiRoof::Move(DomeDirection dir, DomeMotionCommand operation)
             DEBUG(INDI::Logger::DBG_WARNING, "Cannot close dome when mount is locking. See: Telescope parkng policy, in options tab");
             return IPS_ALERT;
         }
-        else if (dir == DOME_CW && getWeatherState() == IPS_ALERT)
-        {
-            DEBUG(INDI::Logger::DBG_WARNING, "Weather conditions are in the danger zone. Cannot open roof.");
-            return IPS_ALERT;
-        }
+  //      else if (dir == DOME_CW && getWeatherState() == IPS_ALERT)
+  //      {
+  //          DEBUG(INDI::Logger::DBG_WARNING, "Weather conditions are in the danger zone. Cannot open roof.");
+  //          return IPS_ALERT;
+  //      }
         else if (dir == DOME_CCW && fullClosedLimitSwitch == ISS_ON)
         {
             DEBUG(INDI::Logger::DBG_WARNING, "Roof is already fully closed.");
