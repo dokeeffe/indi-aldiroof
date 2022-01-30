@@ -34,6 +34,9 @@ const int relayRoofClosePin1 =  4;
 const int relayRoofClosePin2 =  5;      
 const int fullyOpenStopSwitchPin =  8;
 const int fullyClosedStopSwitchPin =  9;
+const int linearActuatorOpenPin = 10;
+const int linearActuatorClosePin = 11;
+
 const int ledPin =  13;
 //Roof state constants
 const int roofClosed = 0;
@@ -41,11 +44,23 @@ const int roofOpen = 1;
 const int roofStopped = 2;
 const int roofClosing = 3;
 const int roofOpening = 4;
-//actual state of the roof
+
+//Shutter state constants
+const int shutterStopped = 6;
+const int shutterClosing = 7;
+const int shutterOpening = 8;
+
+//actual state of the roof and shutter (no limit switches for shutter linear actuators)
 volatile int roofState = roofStopped;
 volatile int previousRoofState = roofStopped;
-long hoistOnTime = 0;
-long ledToggleTime = 0;
+volatile int shutterMotorState = shutterStopped;
+volatile int previousShutterMotorState = shutterStopped;
+volatile bool shutterClosed = true;
+
+const unsigned long maxActuatorTime = 40000;
+unsigned long motorOnTime = 0;
+unsigned long shutterActuatorStartTime = 0;
+unsigned long ledToggleTime = 0;
 bool ledState;
 
 /*==============================================================================
@@ -60,6 +75,8 @@ void setup()
   pinMode(relayRoofClosePin1, OUTPUT);
   pinMode(relayRoofOpenPin2, OUTPUT);
   pinMode(relayRoofClosePin2, OUTPUT);
+  pinMode(linearActuatorOpenPin, OUTPUT);
+  pinMode(linearActuatorClosePin, OUTPUT);
   pinMode(fullyOpenStopSwitchPin, INPUT);
   pinMode(fullyClosedStopSwitchPin, INPUT);
   pinMode(ledPin, OUTPUT);
@@ -88,6 +105,21 @@ void stringCallback(char *myString)
     roofState = roofClosing;
   } else if (commandString.equals("ABORT")) {
     roofState = roofStopped;
+    shutterMotorState = shutterStopped;
+  } else if (commandString.equals("SHUTTEROPEN")) {
+    shutterMotorState = shutterOpening;
+  } else if (commandString.equals("SHUTTERCLOSE")) {
+    shutterMotorState = shutterClosing;
+  } else if (commandString.equals("SHUTTERQUERY")) {
+    if (shutterMotorState == shutterStopped) {
+      if (shutterClosed==true) {
+        Firmata.sendString("SHUTTERCLOSED");
+      } else {
+        Firmata.sendString("SHUTTEROPEN");
+      }
+    } else {
+      Firmata.sendString("SHUTTERUNKNOWN");
+    }
   } else if (commandString.equals("QUERY")) {
     if (digitalRead(fullyOpenStopSwitchPin) == HIGH) {
       Firmata.sendString("OPEN");
@@ -104,7 +136,7 @@ void stringCallback(char *myString)
 */
 void handleState() {
   handleLEDs();
-  safetyCutout();
+  monitorRoofLimitSwitches();
   if (roofState != previousRoofState) {
     previousRoofState = roofState;
     if (roofState == roofOpening) {
@@ -115,10 +147,49 @@ void handleState() {
       motorOff();
     }
   }
+  if (shutterMotorState != previousShutterMotorState) {
+    previousShutterMotorState = shutterMotorState;
+    if (shutterMotorState == shutterOpening) {
+      openShutter();
+    } else if (shutterMotorState == shutterClosing) {
+      closeShutter();
+    } else {
+      stopShutter();
+    }
+  }
+  linearActuatorTimedCutout();
 }
 
 /**
-   Switch off all motor relays
+ * Stop the linear actuator for shutter
+ */
+void stopShutter() {
+  digitalWrite(linearActuatorOpenPin, LOW);
+  digitalWrite(linearActuatorClosePin, LOW);
+  delay(200);
+}
+
+/**
+ * Extend the linear actuator for shutter
+ */
+void openShutter() {
+  stopShutter();
+  shutterActuatorStartTime = millis();
+  digitalWrite(linearActuatorOpenPin, HIGH);  
+}
+
+
+/**
+ * Retract the linear actuator for shutter
+ */
+void closeShutter() {
+  stopShutter();
+  shutterActuatorStartTime = millis();
+  digitalWrite(linearActuatorClosePin, HIGH);
+}
+
+/**
+   Switch off all roof motor relays
 */
 void motorOff() {
   digitalWrite(relayRoofOpenPin1, LOW);
@@ -135,17 +206,17 @@ void motorReverse() {
   motorOff();
   digitalWrite(relayRoofOpenPin1, HIGH);
   digitalWrite(relayRoofOpenPin2, HIGH);
-  hoistOnTime = millis();
+  motorOnTime = millis();
 }
 
 /**
-   Switch on relays to fwd motor
+   Switch on relays to motor forwards
 */
 void motorFwd() {
   motorOff();
   digitalWrite(relayRoofClosePin1, HIGH);
   digitalWrite(relayRoofClosePin2, HIGH);
-  hoistOnTime = millis();
+  motorOnTime = millis();
 }
 
 /**
@@ -153,14 +224,27 @@ void motorFwd() {
 */
 long roofMotorRunDuration() {
   if (roofState == roofOpening || roofState == roofClosing) {
-    return millis() - hoistOnTime;
+    return millis() - motorOnTime;
   } else {
     return 0;
   }
 }
 
+/**
+   Return true if actuators have been on for more than max time (40seconds)
+*/
+bool maximumActuatorRunTimeExceeded() {
+  if (shutterMotorState == shutterOpening || shutterMotorState == shutterClosing) {
+    if (  millis() - shutterActuatorStartTime > maxActuatorTime ) {
+      return true;
+    }    
+  }
+  return false;
+}
 
-void safetyCutout() {
+
+
+void monitorRoofLimitSwitches() {
   if (roofMotorRunDuration() > 1000) {
     if ((roofState == roofOpening && digitalRead(fullyOpenStopSwitchPin) == HIGH) || (roofState == roofClosing && digitalRead(fullyClosedStopSwitchPin) == HIGH)) {
       roofState = roofStopped;
@@ -168,6 +252,19 @@ void safetyCutout() {
   }
 }
 
+/**
+ * Switch off linear actuator after they have been running for 40seconds. This will also update the state of the shutter depending on wether the actuator was opening or closing
+ */
+void linearActuatorTimedCutout() {
+  if ( maximumActuatorRunTimeExceeded() ) {
+    if (shutterMotorState == shutterOpening) {
+      shutterClosed = false;
+    } else if (shutterMotorState == shutterClosing) {
+      shutterClosed = true;
+    } 
+    shutterMotorState = shutterStopped;
+  }
+}
 /**
    LED is used to provide visual clues to the state of the roof controller.
    Really not necessary, but handy for debugging wiring and mechanical problems
