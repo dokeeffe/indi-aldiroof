@@ -158,6 +158,7 @@ void handleState() {
     }
   }
   linearActuatorTimedCutout();
+  roofMotorSafetyTimeoutCutout();
 }
 
 /**
@@ -222,7 +223,7 @@ void motorFwd() {
 /**
    Return the duration in miliseconds that the roof motors have been running
 */
-long roofMotorRunDuration() {
+unsigned long roofMotorRunDuration() {
   if (roofState == roofOpening || roofState == roofClosing) {
     return millis() - motorOnTime;
   } else {
@@ -243,13 +244,26 @@ bool maximumActuatorRunTimeExceeded() {
 }
 
 
-
+/**
+ * Check limit switches for the roof. If fully open or fully closed then set state to stop the motors
+ */
 void monitorRoofLimitSwitches() {
   if (roofMotorRunDuration() > 1000) {
     if ((roofState == roofOpening && digitalRead(fullyOpenStopSwitchPin) == HIGH) || (roofState == roofClosing && digitalRead(fullyClosedStopSwitchPin) == HIGH)) {
       roofState = roofStopped;
     }    
   }
+}
+
+/**
+ * If the motors have been 'on' for more than 30 seconds then switch them off
+ */
+void roofMotorSafetyTimeoutCutout() {
+   if (roofState == roofOpening || roofState == roofClosing) {
+    if (roofMotorRunDuration() > 30000 ) {
+      roofState = roofStopped;  
+    }
+   }
 }
 
 /**
