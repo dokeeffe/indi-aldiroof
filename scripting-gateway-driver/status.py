@@ -50,7 +50,7 @@ def main(path):
     Since this is not a rotating dome, the azimuth is hard coded to 0.
     '''
     state = retrieve_cached_state()
-    if state==None:
+    if state==None or state=='CLOSED':
         state = query_firmware()
         cache_state(state)
     write_to_indi_tempfile(path, state)
