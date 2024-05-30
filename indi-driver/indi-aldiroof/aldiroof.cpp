@@ -189,7 +189,7 @@ bool AldiRoof::updateProperties()
     if (isConnected())
     {
         SetupParms();
-        defineText(&CurrentStateTP);
+        defineProperty(&CurrentStateTP);
     } else
     {
 	deleteProperty(CurrentStateTP.name);
@@ -206,7 +206,6 @@ bool AldiRoof::Disconnect()
     sf->closePort();
     delete sf;
     DEBUG(INDI::Logger::DBG_SESSION, "ARDUINO BOARD DISCONNECTED.");
-    IDSetSwitch (getSwitch("CONNECTION"),"DISCONNECTED\n");
     return true;
 }
 
